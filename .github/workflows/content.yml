@@ -1,0 +1,40 @@
+name: Content bijwerken
+
+# Houdt content/manifest.json actueel. De apps kijken naar dat bestand om te zien
+# of er nieuwe of gewijzigde leerpaden zijn. Zo verschijnt een nieuw leerpad op je
+# pc en je telefoon zodra je het pusht, zonder dat er een nieuwe app-versie nodig is.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'content/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Manifest opnieuw genereren
+        run: node scripts/build-content-index.mjs
+
+      - name: Committen als er iets veranderd is
+        run: |
+          if git diff --quiet content/manifest.json; then
+            echo "Manifest was al bij."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content/manifest.json
+          git commit -m "Content-manifest bijgewerkt"
+          git push

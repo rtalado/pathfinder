@@ -1,0 +1,499 @@
+import type { Flashcard, Roadmap, RoadmapNode, RoadmapResource } from '@/types';
+
+/**
+ * Leerpaden die je zelf toevoegt komen als één JSON-document binnen. Dat is
+ * bewust: een AI in een browser kan geen bestanden op je schijf zetten, maar wel
+ * een blok tekst teruggeven dat je hier plakt.
+ *
+ * Er zijn twee soorten documenten:
+ *
+ *  - een **leerpad**: de volledige structuur, met of zonder uitleg per onderwerp
+ *  - een **aanvulling**: uitleg voor onderwerpen die al bestaan
+ *
+ * De tweede vorm bestaat omdat een compleet leerpad met alle teksten te groot is
+ * voor één antwoord van een AI. Je haalt dan eerst de structuur op en vult daarna
+ * per fase de uitleg aan.
+ */
+
+export const ROADMAP_SCHEMA_VERSION = 1;
+
+const VALID_KINDS = new Set(['milestone', 'topic', 'subtopic', 'label']);
+const VALID_RESOURCE_TYPES = new Set([
+  'article',
+  'video',
+  'book',
+  'course',
+  'standard',
+  'tool',
+  'podcast',
+  'practice',
+]);
+
+/** Iconen die de app kent; zie components/Icon.tsx. */
+export const ICON_NAMES = [
+  'book-open',
+  'briefcase',
+  'building',
+  'clipboard-check',
+  'file-text',
+  'fingerprint',
+  'gauge',
+  'graduation-cap',
+  'key',
+  'layers',
+  'lock',
+  'network',
+  'radar',
+  'scroll',
+  'shield',
+  'shield-check',
+  'target',
+  'users',
+  'workflow',
+] as const;
+
+export class ImportError extends Error {
+  constructor(
+    message: string,
+    readonly hint?: string
+  ) {
+    super(message);
+    this.name = 'ImportError';
+  }
+}
+
+export interface ContentPatch {
+  roadmapId?: string;
+  nodes: { id: string; content: string }[];
+}
+
+export type ImportResult =
+  | { kind: 'roadmap'; roadmap: Roadmap; warnings: string[] }
+  | { kind: 'patch'; patch: ContentPatch; warnings: string[] };
+
+/** Haalt het JSON-object uit een antwoord dat er tekst of codeblokken omheen heeft. */
+export function extractJson(text: string): unknown {
+  const trimmed = text.trim();
+  if (!trimmed) throw new ImportError('Er is niets geplakt.');
+
+  const candidates: string[] = [];
+
+  // Eerst codeblokken; daar zet vrijwel elke AI het antwoord in.
+  const fence = /```(?:json)?\s*\n([\s\S]*?)```/gi;
+  for (let match = fence.exec(trimmed); match; match = fence.exec(trimmed)) {
+    candidates.push(match[1]);
+  }
+  candidates.push(trimmed);
+
+  // Als laatste redmiddel het gedeelte tussen de eerste { en de laatste }.
+  const first = trimmed.indexOf('{');
+  const last = trimmed.lastIndexOf('}');
+  if (first !== -1 && last > first) candidates.push(trimmed.slice(first, last + 1));
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch {
+      // Volgende kandidaat proberen.
+    }
+  }
+
+  throw new ImportError(
+    'Dit is geen geldige JSON.',
+    'Kopieer het volledige antwoord van de AI, inclusief de accolades. Vraag zo nodig: "geef alleen het JSON-object, zonder uitleg eromheen".'
+  );
+}
+
+function slug(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60);
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeResources(raw: unknown, warnings: string[], where: string): RoadmapResource[] {
+  if (!Array.isArray(raw)) return [];
+  const result: RoadmapResource[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const item = entry as Record<string, unknown>;
+    const title = asString(item.title);
+    if (!title) continue;
+    const type = asString(item.type);
+    result.push({
+      title,
+      url: asString(item.url),
+      type: (type && VALID_RESOURCE_TYPES.has(type) ? type : 'article') as RoadmapResource['type'],
+      note: asString(item.note),
+      free: typeof item.free === 'boolean' ? item.free : undefined,
+      minutes: typeof item.minutes === 'number' ? item.minutes : undefined,
+    });
+  }
+  if (Array.isArray(raw) && result.length < raw.length) {
+    warnings.push(`${where}: ${raw.length - result.length} bron(nen) overgeslagen zonder titel.`);
+  }
+  return result;
+}
+
+function normalizeFlashcards(raw: unknown, warnings: string[], where: string): Flashcard[] {
+  if (!Array.isArray(raw)) return [];
+  const result: Flashcard[] = [];
+  const seen = new Set<string>();
+  raw.forEach((entry, index) => {
+    if (!entry || typeof entry !== 'object') return;
+    const item = entry as Record<string, unknown>;
+    const question = asString(item.question) ?? asString(item.q);
+    const answer = asString(item.answer) ?? asString(item.a);
+    if (!question || !answer) {
+      warnings.push(`${where}: kaart ${index + 1} mist een vraag of antwoord en is overgeslagen.`);
+      return;
+    }
+    let id = asString(item.id) ?? `c${index + 1}`;
+    while (seen.has(id)) id = `${id}x`;
+    seen.add(id);
+    result.push({ id, question, answer, hint: asString(item.hint) });
+  });
+  return result;
+}
+
+/** Controleert en repareert een binnengekomen leerpad. Gooit bij echte fouten. */
+export function normalizeRoadmap(input: unknown, warnings: string[] = []): Roadmap {
+  if (!input || typeof input !== 'object') {
+    throw new ImportError('Het document is geen JSON-object.');
+  }
+  const raw = input as Record<string, unknown>;
+
+  const title = asString(raw.title);
+  if (!title) throw new ImportError('Het leerpad heeft geen titel.');
+
+  const id = slug(asString(raw.id) ?? title);
+  if (!id) throw new ImportError('Kon geen geldige id afleiden uit de titel.');
+
+  if (!Array.isArray(raw.nodes) || raw.nodes.length === 0) {
+    throw new ImportError('Het leerpad bevat geen onderwerpen.');
+  }
+  if (raw.nodes.length > 500) {
+    throw new ImportError('Het leerpad bevat meer dan 500 onderwerpen.');
+  }
+
+  const ids = new Set<string>();
+  const nodes: RoadmapNode[] = [];
+
+  raw.nodes.forEach((entry, index) => {
+    if (!entry || typeof entry !== 'object') {
+      warnings.push(`Onderwerp ${index + 1} is geen object en is overgeslagen.`);
+      return;
+    }
+    const item = entry as Record<string, unknown>;
+    const nodeTitle = asString(item.title);
+    if (!nodeTitle) {
+      warnings.push(`Onderwerp ${index + 1} heeft geen titel en is overgeslagen.`);
+      return;
+    }
+
+    let nodeId = slug(asString(item.id) ?? nodeTitle) || `node-${index + 1}`;
+    while (ids.has(nodeId)) nodeId = `${nodeId}-2`;
+    ids.add(nodeId);
+
+    const kind = asString(item.kind);
+    const where = `"${nodeTitle}"`;
+
+    nodes.push({
+      id: nodeId,
+      title: nodeTitle,
+      kind: (kind && VALID_KINDS.has(kind) ? kind : 'topic') as RoadmapNode['kind'],
+      parent: asString(item.parent),
+      side: item.side === 'left' || item.side === 'right' ? item.side : undefined,
+      optional: item.optional === true,
+      summary: asString(item.summary),
+      // Een pad naar een bestand heeft hier geen betekenis: een geimporteerd
+      // leerpad bestaat alleen uit dit ene document.
+      content: asString(item.content) ?? asString(item.body_markdown),
+      resources: normalizeResources(item.resources, warnings, where),
+      flashcards: normalizeFlashcards(item.flashcards, warnings, where),
+      tags: Array.isArray(item.tags)
+        ? item.tags.filter((tag): tag is string => typeof tag === 'string')
+        : undefined,
+    });
+  });
+
+  if (!nodes.length) throw new ImportError('Geen enkel bruikbaar onderwerp gevonden.');
+
+  // Ouders die niet bestaan zouden nodes onzichtbaar maken.
+  const milestones = nodes.filter((node) => node.kind === 'milestone');
+  if (!milestones.length) {
+    nodes[0].kind = 'milestone';
+    nodes[0].parent = undefined;
+    warnings.push(`Geen enkele fase gevonden; "${nodes[0].title}" is nu de eerste fase.`);
+  }
+
+  const firstMilestone = nodes.find((node) => node.kind === 'milestone')!.id;
+  let repaired = 0;
+  for (const node of nodes) {
+    if (node.kind === 'milestone') {
+      node.parent = undefined;
+      continue;
+    }
+    if (!node.parent || !ids.has(node.parent) || node.parent === node.id) {
+      node.parent = firstMilestone;
+      repaired += 1;
+    }
+  }
+  if (repaired) {
+    warnings.push(`${repaired} onderwerp(en) hingen nergens aan en staan nu bij de eerste fase.`);
+  }
+
+  const icon = asString(raw.icon);
+  const color = asString(raw.color);
+
+  return {
+    id,
+    title,
+    subtitle: asString(raw.subtitle),
+    description: asString(raw.description),
+    icon: icon && (ICON_NAMES as readonly string[]).includes(icon) ? icon : 'graduation-cap',
+    color: color && /^#[0-9a-f]{6}$/i.test(color) ? color : '#38bdf8',
+    version: typeof raw.version === 'number' ? raw.version : 1,
+    order: typeof raw.order === 'number' ? raw.order : 50,
+    estimatedHours: typeof raw.estimatedHours === 'number' ? raw.estimatedHours : undefined,
+    updatedAt: new Date().toISOString().slice(0, 10),
+    nodes,
+  };
+}
+
+/** Bepaalt of het geplakte document een leerpad of een aanvulling is. */
+export function parseImport(text: string): ImportResult {
+  const parsed = extractJson(text);
+  const raw = parsed as Record<string, unknown>;
+  const warnings: string[] = [];
+
+  const looksLikePatch =
+    Array.isArray(raw.nodes) &&
+    !raw.title &&
+    (raw.nodes as unknown[]).every(
+      (entry) =>
+        entry &&
+        typeof entry === 'object' &&
+        'content' in (entry as Record<string, unknown>) &&
+        !('kind' in (entry as Record<string, unknown>))
+    );
+
+  if (looksLikePatch) {
+    const nodes: ContentPatch['nodes'] = [];
+    for (const entry of raw.nodes as Record<string, unknown>[]) {
+      const id = asString(entry.id);
+      const content = asString(entry.content);
+      if (id && content) nodes.push({ id, content });
+    }
+    if (!nodes.length) throw new ImportError('De aanvulling bevat geen bruikbare teksten.');
+    return { kind: 'patch', patch: { roadmapId: asString(raw.roadmapId), nodes }, warnings };
+  }
+
+  return { kind: 'roadmap', roadmap: normalizeRoadmap(parsed, warnings), warnings };
+}
+
+export interface PatchResult {
+  roadmap: Roadmap;
+  applied: number;
+  unknown: string[];
+}
+
+export function applyPatch(roadmap: Roadmap, patch: ContentPatch): PatchResult {
+  const byId = new Map(roadmap.nodes.map((node) => [node.id, node]));
+  const unknown: string[] = [];
+  let applied = 0;
+
+  const nodes = roadmap.nodes.map((node) => ({ ...node }));
+  const lookup = new Map(nodes.map((node) => [node.id, node]));
+
+  for (const item of patch.nodes) {
+    const target = lookup.get(item.id) ?? lookup.get(slug(item.id));
+    if (!target || !byId.has(target.id)) {
+      unknown.push(item.id);
+      continue;
+    }
+    target.content = item.content;
+    applied += 1;
+  }
+
+  return {
+    roadmap: { ...roadmap, nodes, updatedAt: new Date().toISOString().slice(0, 10) },
+    applied,
+    unknown,
+  };
+}
+
+/** Het leerpad als deelbaar document, zodat je het kunt bewaren of doorgeven. */
+export function serializeRoadmap(roadmap: Roadmap): string {
+  return `${JSON.stringify(roadmap, null, 2)}\n`;
+}
+
+export interface PromptOptions {
+  topic: string;
+  level: 'beginner' | 'gevorderd' | 'expert';
+  language: 'nl' | 'en';
+  depth: 'compact' | 'normaal' | 'uitgebreid';
+}
+
+const LEVEL_TEXT: Record<PromptOptions['level'], string> = {
+  beginner: 'iemand die er net mee begint en nog geen voorkennis heeft',
+  gevorderd: 'iemand die de basis kent en wil verdiepen richting professioneel niveau',
+  expert: 'iemand die al ervaren is en de laatste 20 procent zoekt',
+};
+
+const DEPTH_TEXT: Record<PromptOptions['depth'], { milestones: string; topics: string }> = {
+  compact: { milestones: '5 tot 6', topics: '3 tot 5' },
+  normaal: { milestones: '7 tot 9', topics: '4 tot 7' },
+  uitgebreid: { milestones: '9 tot 12', topics: '5 tot 8' },
+};
+
+/**
+ * De prompt voor stap 1: de structuur. Bewust zonder de volledige uitleg, want
+ * die past niet in één antwoord. De uitleg volgt per fase met de tweede prompt.
+ */
+export function buildStructurePrompt(options: PromptOptions): string {
+  const { topic, level, language, depth } = options;
+  const counts = DEPTH_TEXT[depth];
+  const languageLine =
+    language === 'nl'
+      ? 'Schrijf alles in het Nederlands. Vaktermen die in het vakgebied Engels zijn, laat je Engels.'
+      : 'Write everything in English.';
+
+  return `Je maakt een leerpad voor de app LearnPath. Antwoord met UITSLUITEND één JSON-object in één codeblok. Geen inleiding, geen uitleg eromheen.
+
+ONDERWERP: ${topic}
+BEDOELD VOOR: ${LEVEL_TEXT[level]}
+TAAL: ${languageLine}
+
+Lever dit JSON-formaat:
+
+\`\`\`json
+{
+  "id": "korte-kebab-case-naam",
+  "title": "Naam van het leerpad",
+  "subtitle": "Eén regel die zegt waar het pad heen gaat",
+  "description": "Twee tot drie zinnen over de opzet en voor wie het is.",
+  "icon": "graduation-cap",
+  "color": "#38bdf8",
+  "version": 1,
+  "estimatedHours": 60,
+  "nodes": [
+    {
+      "id": "fase-1",
+      "title": "1. Naam van de eerste fase",
+      "kind": "milestone",
+      "summary": "Eén tot drie zinnen: wat leer je in deze fase en waarom eerst?"
+    },
+    {
+      "id": "fase-1-onderwerp",
+      "title": "Naam van het onderwerp",
+      "kind": "topic",
+      "parent": "fase-1",
+      "summary": "Eén tot drie zinnen die concreet zeggen wat dit onderwerp inhoudt.",
+      "resources": [
+        { "title": "Naam van de bron", "url": "https://...", "type": "article", "free": true }
+      ],
+      "flashcards": [
+        { "id": "c1", "question": "Korte, scherpe vraag?", "answer": "Antwoord in markdown." }
+      ]
+    },
+    {
+      "id": "fase-1-onderwerp-detail",
+      "title": "Een detail onder dat onderwerp",
+      "kind": "subtopic",
+      "parent": "fase-1-onderwerp",
+      "summary": "Eén tot twee zinnen."
+    }
+  ]
+}
+\`\`\`
+
+REGELS
+
+1. Maak ${counts.milestones} fasen ("kind": "milestone"), in de volgorde waarin je ze het beste leert. Nummer de titels: "1. ...", "2. ...".
+2. Hang aan elke fase ${counts.topics} onderwerpen ("kind": "topic") met "parent" = de id van die fase.
+3. Gebruik "kind": "subtopic" alleen waar een onderwerp echt uiteenvalt in delen. Niet overal.
+4. Elke "id" is kebab-case, uniek, en begint met de id van de fase. Elke node behalve een milestone heeft een bestaande "parent".
+5. Elke node heeft een "summary" van één tot drie zinnen. Wees concreet: geen "dit is belangrijk", wel wat je leert of doet.
+6. Zet "optional": true bij onderwerpen die nuttig maar niet noodzakelijk zijn.
+7. Voeg alleen "resources" toe met URL's waarvan je zeker weet dat ze bestaan: officiële documentatie, standaarden, bekende boeken. Verzin geen links. Bij twijfel laat je de "url" weg en noem je alleen de titel.
+8. Voeg 0 tot 2 "flashcards" toe bij de onderwerpen waar feitenkennis telt. Vraag naar begrip, niet naar definities uit het hoofd.
+9. Kies "icon" uit precies deze lijst: ${ICON_NAMES.join(', ')}.
+10. Geen "content"-veld in dit antwoord. De uitleg volgt in een tweede stap.
+
+Geef nu alleen het JSON-object.`;
+}
+
+/**
+ * De prompt voor stap 2: de uitleg voor één fase. Per fase, omdat een AI anders
+ * halverwege afgekapt wordt.
+ */
+export function buildContentPrompt(
+  roadmap: Roadmap,
+  milestoneId: string,
+  language: 'nl' | 'en' = 'nl'
+): string {
+  const milestone = roadmap.nodes.find((node) => node.id === milestoneId);
+  const children = new Set<string>();
+  const collect = (parentId: string) => {
+    for (const node of roadmap.nodes) {
+      if (node.parent === parentId && !children.has(node.id)) {
+        children.add(node.id);
+        collect(node.id);
+      }
+    }
+  };
+  collect(milestoneId);
+
+  const targets = [milestone, ...roadmap.nodes.filter((node) => children.has(node.id))].filter(
+    (node): node is RoadmapNode => Boolean(node)
+  );
+
+  const list = targets
+    .map((node) => `- ${node.id} — ${node.title}${node.summary ? ` (${node.summary})` : ''}`)
+    .join('\n');
+
+  const languageLine =
+    language === 'nl'
+      ? 'Schrijf in het Nederlands; vaktermen die in het vakgebied Engels zijn, blijven Engels.'
+      : 'Write in English.';
+
+  return `Je schrijft de uitleg voor een fase uit het leerpad "${roadmap.title}". Antwoord met UITSLUITEND één JSON-object in één codeblok.
+
+${languageLine}
+
+Schrijf voor deze onderwerpen:
+
+${list}
+
+Formaat:
+
+\`\`\`json
+{
+  "roadmapId": "${roadmap.id}",
+  "nodes": [
+    { "id": "${targets[0]?.id ?? 'onderwerp-id'}", "content": "# Titel\\n\\nMarkdown-tekst..." }
+  ]
+}
+\`\`\`
+
+REGELS
+
+1. Gebruik exact de ids uit de lijst hierboven, ongewijzigd.
+2. Schrijf per onderwerp 250 tot 500 woorden markdown. Begin met een "# " kop die de titel herhaalt.
+3. Gebruik tussenkoppen, korte alinea's, lijsten en waar het past een tabel. Het wordt ook op een telefoon gelezen.
+4. Leg uit wat het is, waarom het ertoe doet, en vooral: waar het in de praktijk misgaat. Dat laatste is het waardevolste deel.
+5. Geen opvulzinnen, geen aankondigingen als "in dit hoofdstuk bespreken we". Meteen ter zake.
+6. Verzin geen feiten, cijfers of bronnen. Weet je iets niet zeker, schrijf het dan algemener.
+7. Let op: dit is JSON. Regeleindes in "content" schrijf je als \\n, en aanhalingstekens escape je.
+
+Geef nu alleen het JSON-object.`;
+}

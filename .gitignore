@@ -1,0 +1,25 @@
+node_modules/
+dist/
+dist-electron/
+release/
+
+# Capacitor genereert het Android-project; alleen de bronbestanden horen in git.
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/src/main/assets/public/
+android/capacitor-cordova-android-plugins/
+
+*.local
+*.log
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Nooit committen: de GitHub-token voor sync staat lokaal versleuteld opgeslagen.
+.env
+.env.*
+secrets.json

@@ -1,0 +1,29 @@
+name: Controle
+
+# Loopt bij elke push: typecontrole, build, en een controle op de leerpaden zelf
+# (verwijzen alle nodes naar bestaande bestanden en documenten?).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Leerpaden controleren
+        run: node scripts/check-content.mjs
+
+      - name: Typecontrole en build
+        run: npm run build

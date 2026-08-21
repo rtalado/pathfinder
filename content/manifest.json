@@ -1,0 +1,60 @@
+{
+  "contentVersion": "03bae9f7f8f1ba72",
+  "generatedAt": "2026-08-21T18:59:28.089Z",
+  "roadmaps": [
+    {
+      "id": "start",
+      "title": "Zo werkt LearnPath",
+      "subtitle": "Lees dit eerst, maak daarna je eigen leerpad",
+      "icon": "graduation-cap",
+      "color": "#8b5cf6",
+      "version": 1,
+      "order": 1,
+      "nodeCount": 6,
+      "path": "roadmaps/start/roadmap.json"
+    }
+  ],
+  "collections": [],
+  "files": [
+    {
+      "path": "docs/.gitkeep",
+      "hash": "70c47bf8b407d8cd",
+      "size": 70
+    },
+    {
+      "path": "roadmaps/start/nodes/eigen-pad.md",
+      "hash": "e50263eab45f45ea",
+      "size": 873
+    },
+    {
+      "path": "roadmaps/start/nodes/installeren.md",
+      "hash": "b446ed8b58481548",
+      "size": 669
+    },
+    {
+      "path": "roadmaps/start/nodes/prompt.md",
+      "hash": "ec98add6b9ca1a93",
+      "size": 761
+    },
+    {
+      "path": "roadmaps/start/nodes/sync.md",
+      "hash": "9ec7395fbd52defc",
+      "size": 877
+    },
+    {
+      "path": "roadmaps/start/nodes/zelf-schrijven.md",
+      "hash": "b449f6cbc12e6513",
+      "size": 616
+    },
+    {
+      "path": "roadmaps/start/nodes/zo-werkt-het.md",
+      "hash": "b7021520045b7b11",
+      "size": 681
+    },
+    {
+      "path": "roadmaps/start/roadmap.json",
+      "hash": "3a3a22162cd7722c",
+      "size": 2299
+    }
+  ]
+}

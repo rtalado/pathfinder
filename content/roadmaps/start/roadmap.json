@@ -1,0 +1,66 @@
+{
+  "id": "start",
+  "title": "Zo werkt LearnPath",
+  "subtitle": "Lees dit eerst, maak daarna je eigen leerpad",
+  "description": "Een kort pad dat uitlegt hoe de app werkt en hoe je met een AI je eigen leerpad maakt. Verwijder het gerust zodra je op weg bent.",
+  "icon": "graduation-cap",
+  "color": "#8b5cf6",
+  "version": 1,
+  "order": 1,
+  "estimatedHours": 1,
+  "nodes": [
+    {
+      "id": "basis",
+      "title": "1. Zo werkt de app",
+      "kind": "milestone",
+      "body": "nodes/zo-werkt-het.md",
+      "summary": "Fasen, onderwerpen, statussen en de twee weergaven."
+    },
+    {
+      "id": "basis-eigen-pad",
+      "title": "Je eigen leerpad maken",
+      "kind": "topic",
+      "parent": "basis",
+      "body": "nodes/eigen-pad.md",
+      "summary": "In zes stappen, met een AI naar keuze. Programmeren is niet nodig.",
+      "flashcards": [
+        {
+          "id": "c1",
+          "question": "Waarom haal je de uitleg per fase op in plaats van in één keer?",
+          "answer": "Omdat een compleet leerpad met alle teksten te lang is voor één antwoord van een AI. Het antwoord wordt dan halverwege afgekapt.\n\nPer fase blijft het binnen de perken, en je kunt het verdelen over meerdere momenten."
+        }
+      ]
+    },
+    {
+      "id": "basis-prompt",
+      "title": "De opdracht aanpassen",
+      "kind": "subtopic",
+      "parent": "basis-eigen-pad",
+      "body": "nodes/prompt.md",
+      "summary": "Context toevoegen levert een beter pad op. En waarom je niet om links moet vragen."
+    },
+    {
+      "id": "basis-zelf",
+      "title": "Zelf schrijven of aanpassen",
+      "kind": "subtopic",
+      "parent": "basis-eigen-pad",
+      "body": "nodes/zelf-schrijven.md",
+      "summary": "Een leerpad is één JSON-document dat je kunt exporteren, aanpassen en delen."
+    },
+    {
+      "id": "sync",
+      "title": "2. Op meerdere apparaten",
+      "kind": "milestone",
+      "body": "nodes/sync.md",
+      "summary": "Voortgang gelijk houden tussen pc en telefoon via je eigen privé repository.",
+      "optional": true
+    },
+    {
+      "id": "installeren",
+      "title": "3. Installeren en bijwerken",
+      "kind": "milestone",
+      "body": "nodes/installeren.md",
+      "summary": "Windows, Android, en wat je nodig hebt om zelf te bouwen."
+    }
+  ]
+}

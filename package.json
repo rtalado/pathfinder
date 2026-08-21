@@ -1,0 +1,103 @@
+{
+  "name": "learnpath",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Modulaire leerpad-app voor desktop en Android; leerpaden maak je met een AI.",
+  "author": {
+    "name": "rtalado"
+  },
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run content:index && vite",
+    "build": "npm run content:index && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "electron:build": "npm run build && electron-builder --win --publish never",
+    "electron:publish": "npm run build && electron-builder --win --publish always",
+    "android:sync": "npm run build && node scripts/set-android-version.mjs && cap sync android",
+    "android:open": "cap open android",
+    "content:index": "node scripts/build-content-index.mjs",
+    "content:check": "node scripts/check-content.mjs",
+    "android:version": "node scripts/set-android-version.mjs",
+    "icons": "node scripts/make-icons.mjs",
+    "skeleton": "node scripts/make-skeleton.mjs"
+  },
+  "build": {
+    "appId": "com.example.learnpath",
+    "productName": "LearnPath",
+    "copyright": "",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "LearnPath-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "LearnPath"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "rtalado",
+        "repo": "learnpath",
+        "private": false,
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.3.6",
+    "electron-updater": "^6.3.9",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.1",
+    "react-router-dom": "^6.28.0",
+    "remark-gfm": "^4.0.0",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "mammoth": "^1.8.0",
+    "turndown": "^7.2.0",
+    "turndown-plugin-gfm": "^1.0.2",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11",
+    "wait-on": "^8.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "esbuild@0.21.5": true
+  },
+  "license": "MIT"
+}
