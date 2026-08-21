@@ -127,11 +127,22 @@ function normalizeResources(raw: unknown, warnings: string[], where: string): Ro
     const item = entry as Record<string, unknown>;
     const title = asString(item.title);
     if (!title) continue;
+
+    const query = asString(item.query);
     const type = asString(item.type);
+    const searchOn = asString(item.searchOn);
+    // Een bron met een zoekopdracht is per definitie een zoekbron; dat voorkomt
+    // dat een AI hem als "video" bestempelt en er alsnog een verzonnen link bij zet.
+    const kind = query
+      ? 'search'
+      : ((type && VALID_RESOURCE_TYPES.has(type) ? type : 'article') as RoadmapResource['type']);
+
     result.push({
       title,
-      url: asString(item.url),
-      type: (type && VALID_RESOURCE_TYPES.has(type) ? type : 'article') as RoadmapResource['type'],
+      url: query ? undefined : asString(item.url),
+      type: kind,
+      query,
+      searchOn: searchOn === 'youtube' ? 'youtube' : query ? 'web' : undefined,
       note: asString(item.note),
       free: typeof item.free === 'boolean' ? item.free : undefined,
       minutes: typeof item.minutes === 'number' ? item.minutes : undefined,
@@ -212,6 +223,7 @@ export function normalizeRoadmap(input: unknown, warnings: string[] = []): Roadm
       kind: (kind && VALID_KINDS.has(kind) ? kind : 'topic') as RoadmapNode['kind'],
       parent: asString(item.parent),
       side: item.side === 'left' || item.side === 'right' ? item.side : undefined,
+      group: asString(item.group),
       optional: item.optional === true,
       summary: asString(item.summary),
       // Een pad naar een bestand heeft hier geen betekenis: een geimporteerd
@@ -355,23 +367,50 @@ const DEPTH_TEXT: Record<PromptOptions['depth'], { milestones: string; topics: s
   uitgebreid: { milestones: '9 tot 12', topics: '5 tot 8' },
 };
 
+function languageLine(language: 'nl' | 'en'): string {
+  return language === 'nl'
+    ? 'Schrijf alles in het Nederlands. Vaktermen die in het vakgebied Engels zijn, laat je Engels.'
+    : 'Write everything in English.';
+}
+
 /**
- * De prompt voor stap 1: de structuur. Bewust zonder de volledige uitleg, want
- * die past niet in één antwoord. De uitleg volgt per fase met de tweede prompt.
+ * De regels over bronnen. Een AI verzint links naar specifieke video's en artikelen
+ * met veel overtuiging, en die zijn dan dood. Daarom: alleen adressen waar de AI
+ * echt zeker van is, en voor de rest zoekopdrachten waar de app zelf een werkende
+ * zoek-URL van maakt.
+ */
+const RESOURCE_RULES = `BRONNEN
+
+Geef per onderwerp 2 tot 4 bronnen, in een van deze twee vormen:
+
+1. Een **vast adres**, alleen als je zeker weet dat het bestaat en nog bestaat.
+   Denk aan officiele documentatie, een RFC, een normpagina of een bekend boek.
+   { "title": "...", "url": "https://...", "type": "article" }
+   Verzin nooit een adres. Twijfel je ook maar een beetje? Gebruik dan vorm 2.
+
+2. Een **zoekopdracht**, die de app omzet in een werkende zoeklink. Gebruik dit
+   voor video's, tutorials en alles waarvan je het adres niet zeker weet.
+   { "title": "Wat je gaat zoeken", "query": "de zoekterm", "searchOn": "youtube" }
+   searchOn is "youtube" of "web". Formuleer de zoekterm zoals iemand die het vak
+   kent hem zou intypen: specifiek, met de juiste termen, zonder vraagteken.
+
+Zet bij elk onderwerp minstens een zoekopdracht voor een video, want daar leert
+iemand vaak het snelst van. Voeg bij "type" alleen een waarde toe uit deze lijst:
+article, video, book, course, standard, tool, podcast, practice.`;
+
+/**
+ * Stap 1: de structuur. Bewust zonder de volledige uitleg, want die past niet in
+ * een antwoord. De uitleg volgt per fase of per onderwerp met de tweede prompt.
  */
 export function buildStructurePrompt(options: PromptOptions): string {
   const { topic, level, language, depth } = options;
   const counts = DEPTH_TEXT[depth];
-  const languageLine =
-    language === 'nl'
-      ? 'Schrijf alles in het Nederlands. Vaktermen die in het vakgebied Engels zijn, laat je Engels.'
-      : 'Write everything in English.';
 
-  return `Je maakt een leerpad voor de app LearnPath. Antwoord met UITSLUITEND één JSON-object in één codeblok. Geen inleiding, geen uitleg eromheen.
+  return `Je maakt een leerpad voor de app LearnPath. Antwoord met UITSLUITEND een JSON-object in een codeblok. Geen inleiding, geen uitleg eromheen.
 
 ONDERWERP: ${topic}
 BEDOELD VOOR: ${LEVEL_TEXT[level]}
-TAAL: ${languageLine}
+TAAL: ${languageLine(language)}
 
 Lever dit JSON-formaat:
 
@@ -379,7 +418,7 @@ Lever dit JSON-formaat:
 {
   "id": "korte-kebab-case-naam",
   "title": "Naam van het leerpad",
-  "subtitle": "Eén regel die zegt waar het pad heen gaat",
+  "subtitle": "Een regel die zegt waar het pad heen gaat",
   "description": "Twee tot drie zinnen over de opzet en voor wie het is.",
   "icon": "graduation-cap",
   "color": "#38bdf8",
@@ -390,27 +429,36 @@ Lever dit JSON-formaat:
       "id": "fase-1",
       "title": "1. Naam van de eerste fase",
       "kind": "milestone",
-      "summary": "Eén tot drie zinnen: wat leer je in deze fase en waarom eerst?"
+      "summary": "Twee tot vier zinnen: wat leer je in deze fase, waarom staat hij hier, en wat kun je erna dat je daarvoor niet kon."
     },
     {
       "id": "fase-1-onderwerp",
       "title": "Naam van het onderwerp",
       "kind": "topic",
       "parent": "fase-1",
-      "summary": "Eén tot drie zinnen die concreet zeggen wat dit onderwerp inhoudt.",
+      "summary": "Twee tot vier zinnen. Zeg concreet wat je gaat doen en wat het resultaat is, niet dat het belangrijk is.",
       "resources": [
-        { "title": "Naam van de bron", "url": "https://...", "type": "article", "free": true }
+        { "title": "Officiele documentatie", "url": "https://...", "type": "standard" },
+        { "title": "Uitleg in video", "query": "concrete zoekterm", "searchOn": "youtube" }
       ],
       "flashcards": [
         { "id": "c1", "question": "Korte, scherpe vraag?", "answer": "Antwoord in markdown." }
       ]
     },
     {
-      "id": "fase-1-onderwerp-detail",
-      "title": "Een detail onder dat onderwerp",
+      "id": "fase-1-optie-a",
+      "title": "Optie A",
       "kind": "subtopic",
       "parent": "fase-1-onderwerp",
-      "summary": "Eén tot twee zinnen."
+      "group": "opties",
+      "summary": "Korte omschrijving."
+    },
+    {
+      "id": "fase-1-kader",
+      "title": "Let op",
+      "kind": "label",
+      "parent": "fase-1",
+      "summary": "Een korte toelichting die naast de kaart komt te staan, bijvoorbeeld een begrip dat verwarring geeft."
     }
   ]
 }
@@ -420,21 +468,69 @@ REGELS
 
 1. Maak ${counts.milestones} fasen ("kind": "milestone"), in de volgorde waarin je ze het beste leert. Nummer de titels: "1. ...", "2. ...".
 2. Hang aan elke fase ${counts.topics} onderwerpen ("kind": "topic") met "parent" = de id van die fase.
-3. Gebruik "kind": "subtopic" alleen waar een onderwerp echt uiteenvalt in delen. Niet overal.
-4. Elke "id" is kebab-case, uniek, en begint met de id van de fase. Elke node behalve een milestone heeft een bestaande "parent".
-5. Elke node heeft een "summary" van één tot drie zinnen. Wees concreet: geen "dit is belangrijk", wel wat je leert of doet.
-6. Zet "optional": true bij onderwerpen die nuttig maar niet noodzakelijk zijn.
-7. Voeg alleen "resources" toe met URL's waarvan je zeker weet dat ze bestaan: officiële documentatie, standaarden, bekende boeken. Verzin geen links. Bij twijfel laat je de "url" weg en noem je alleen de titel.
-8. Voeg 0 tot 2 "flashcards" toe bij de onderwerpen waar feitenkennis telt. Vraag naar begrip, niet naar definities uit het hoofd.
-9. Kies "icon" uit precies deze lijst: ${ICON_NAMES.join(', ')}.
-10. Geen "content"-veld in dit antwoord. De uitleg volgt in een tweede stap.
+3. Gebruik "kind": "subtopic" waar een onderwerp uiteenvalt in delen, met de id van het onderwerp als "parent".
+4. Staan er korte, gelijksoortige keuzes naast elkaar, zoals talen of gereedschappen? Geef die dezelfde "group"; ze komen dan naast elkaar op een rij te staan.
+5. Voeg 1 tot 3 blokken met "kind": "label" toe voor begrippen die uitleg nodig hebben. Die tellen niet mee in je voortgang; de "summary" is de tekst die je ziet.
+6. Elke "id" is kebab-case, uniek, en begint met de id van de fase. Elke node behalve een milestone heeft een bestaande "parent".
+7. Elke "summary" is twee tot vier zinnen en zegt iets concreets. Fout: "Dit is een belangrijk onderdeel van het vakgebied." Goed: "Je zet een lokale omgeving op met Docker, laadt de voorbeelddataset in en draait je eerste query. Daarna weet je of je installatie klopt."
+8. Zet "optional": true bij onderwerpen die nuttig maar niet noodzakelijk zijn.
+9. Voeg 0 tot 2 "flashcards" toe bij onderwerpen waar feitenkennis telt. Vraag naar begrip, niet naar definities uit het hoofd.
+10. Kies "icon" uit precies deze lijst: ${ICON_NAMES.join(', ')}.
+11. Geen "content"-veld in dit antwoord. De uitleg volgt in een tweede stap.
+
+${RESOURCE_RULES}
 
 Geef nu alleen het JSON-object.`;
 }
 
 /**
- * De prompt voor stap 2: de uitleg voor één fase. Per fase, omdat een AI anders
- * halverwege afgekapt wordt.
+ * De opbouw die elk onderwerp moet krijgen. Dit is waar het om draait: zonder deze
+ * regels levert een AI een alinea die klinkt als een samenvatting van een
+ * samenvatting, en daar leer je niets van.
+ */
+const CONTENT_RULES = `WAT ER IN ELK ONDERWERP MOET STAAN
+
+Gebruik deze vier delen, in deze volgorde, met deze koppen:
+
+    # <de titel van het onderwerp>
+
+    <Twee tot vier alinea's: wat het is, hoe het werkt, en waarom het ertoe doet.
+    Leg het mechanisme uit, niet alleen de definitie. Gebruik waar het helpt een
+    tabel of een opsomming.>
+
+    ## Hoe je het doet
+
+    <Genummerde stappen die iemand echt kan volgen. Noem concrete namen: het menu,
+    de instelling, het commando, het bestand, het veld. Waar een commando of stukje
+    configuratie hoort, zet je dat in een codeblok. Geen algemeenheden als "richt
+    het goed in" of "zorg voor beleid".>
+
+    ## Hoe het eruitziet
+
+    <Een concreet voorbeeld van het resultaat: een stuk configuratie, een schema,
+    een voorbeelddocument, een tabel met voorbeeldwaarden, of een beschrijving van
+    wat je op je scherm ziet als het klopt. Iets waaraan de lezer zijn eigen werk
+    kan afmeten.>
+
+    ## Zelf doen
+
+    <Een opdracht van dertig tot negentig minuten die de lezer echt kan uitvoeren,
+    met wat hij daarvoor nodig heeft. Sluit af met: waaraan zie je dat het gelukt is.>
+
+SCHRIJFREGELS
+
+- 700 tot 1200 woorden per onderwerp. Korter is te dun.
+- Meteen ter zake. Geen "in dit hoofdstuk bespreken we", geen samenvatting aan het eind.
+- Concreet boven volledig. Een voorbeeld dat klopt is meer waard dan drie die vaag zijn.
+- Verzin geen feiten, versienummers, prijzen of bronnen. Weet je iets niet zeker,
+  schrijf dan wat je wel zeker weet en zeg waar het van afhangt.
+- Schrijf voor iemand die het gaat doen, niet voor iemand die erover wil meepraten.
+- Let op: dit is JSON. Regeleindes in "content" schrijf je als \\n, aanhalingstekens
+  escape je, en een backslash schrijf je als \\\\.`;
+
+/**
+ * Stap 2a: de uitleg voor een hele fase. Per fase, omdat een AI het anders niet in
+ * een antwoord kwijt kan.
  */
 export function buildContentPrompt(
   roadmap: Roadmap,
@@ -454,23 +550,18 @@ export function buildContentPrompt(
   collect(milestoneId);
 
   const targets = [milestone, ...roadmap.nodes.filter((node) => children.has(node.id))].filter(
-    (node): node is RoadmapNode => Boolean(node)
+    (node): node is RoadmapNode => node !== undefined && node.kind !== 'label'
   );
 
   const list = targets
-    .map((node) => `- ${node.id} — ${node.title}${node.summary ? ` (${node.summary})` : ''}`)
+    .map((node) => `- ${node.id} — ${node.title}${node.summary ? `\n      ${node.summary}` : ''}`)
     .join('\n');
 
-  const languageLine =
-    language === 'nl'
-      ? 'Schrijf in het Nederlands; vaktermen die in het vakgebied Engels zijn, blijven Engels.'
-      : 'Write in English.';
+  return `Je schrijft de lesstof voor een fase uit het leerpad "${roadmap.title}". Antwoord met UITSLUITEND een JSON-object in een codeblok.
 
-  return `Je schrijft de uitleg voor een fase uit het leerpad "${roadmap.title}". Antwoord met UITSLUITEND één JSON-object in één codeblok.
+${languageLine(language)}
 
-${languageLine}
-
-Schrijf voor deze onderwerpen:
+Schrijf voor deze ${targets.length} onderwerpen, in deze volgorde:
 
 ${list}
 
@@ -480,20 +571,87 @@ Formaat:
 {
   "roadmapId": "${roadmap.id}",
   "nodes": [
-    { "id": "${targets[0]?.id ?? 'onderwerp-id'}", "content": "# Titel\\n\\nMarkdown-tekst..." }
+    { "id": "${targets[0]?.id ?? 'onderwerp-id'}", "content": "# Titel\\n\\n..." }
   ]
 }
 \`\`\`
 
-REGELS
+Gebruik exact de ids uit de lijst hierboven, ongewijzigd.
 
-1. Gebruik exact de ids uit de lijst hierboven, ongewijzigd.
-2. Schrijf per onderwerp 250 tot 500 woorden markdown. Begin met een "# " kop die de titel herhaalt.
-3. Gebruik tussenkoppen, korte alinea's, lijsten en waar het past een tabel. Het wordt ook op een telefoon gelezen.
-4. Leg uit wat het is, waarom het ertoe doet, en vooral: waar het in de praktijk misgaat. Dat laatste is het waardevolste deel.
-5. Geen opvulzinnen, geen aankondigingen als "in dit hoofdstuk bespreken we". Meteen ter zake.
-6. Verzin geen feiten, cijfers of bronnen. Weet je iets niet zeker, schrijf het dan algemener.
-7. Let op: dit is JSON. Regeleindes in "content" schrijf je als \\n, en aanhalingstekens escape je.
+${CONTENT_RULES}
 
-Geef nu alleen het JSON-object.`;
+Wordt je antwoord te lang voor alle ${targets.length} onderwerpen? Behandel er dan zoveel als je goed kunt doen, en zet aan het eind buiten het codeblok een regel met welke ids je nog niet hebt gedaan. Lever nooit een half onderwerp of afgekapte JSON.
+
+Geef nu het JSON-object.`;
+}
+
+/**
+ * Stap 2b: een enkel onderwerp, veel dieper. Voor als de uitleg te dun blijkt of
+ * je juist van dit onderwerp alles wilt weten.
+ */
+export function buildNodePrompt(
+  roadmap: Roadmap,
+  nodeId: string,
+  language: 'nl' | 'en' = 'nl'
+): string {
+  const node = roadmap.nodes.find((entry) => entry.id === nodeId);
+  if (!node) return '';
+
+  const parent = node.parent ? roadmap.nodes.find((entry) => entry.id === node.parent) : undefined;
+  const siblings = roadmap.nodes
+    .filter((entry) => entry.parent === node.parent && entry.id !== node.id)
+    .map((entry) => entry.title);
+
+  const context = [
+    `Leerpad: ${roadmap.title}${roadmap.subtitle ? ` — ${roadmap.subtitle}` : ''}`,
+    parent ? `Hoort bij: ${parent.title}` : null,
+    siblings.length ? `Onderwerpen ernaast: ${siblings.join(', ')}` : null,
+    node.summary ? `Korte omschrijving: ${node.summary}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const existing = node.content
+    ? `\nEr staat al een tekst, maar die is te oppervlakkig. Schrijf hem opnieuw, dieper en concreter. Herhaal niet wat er staat als het te algemeen was.\n\n--- huidige tekst ---\n${node.content.slice(0, 1200)}${node.content.length > 1200 ? '\n[...]' : ''}\n--- einde ---\n`
+    : '';
+
+  return `Je schrijft de lesstof voor een onderwerp uit een leerpad. Antwoord met UITSLUITEND een JSON-object in een codeblok.
+
+${languageLine(language)}
+
+ONDERWERP: ${node.title}
+
+${context}
+${existing}
+Formaat:
+
+\`\`\`json
+{
+  "roadmapId": "${roadmap.id}",
+  "nodes": [
+    { "id": "${node.id}", "content": "# ${node.title}\\n\\n..." }
+  ]
+}
+\`\`\`
+
+${CONTENT_RULES}
+
+Omdat dit om een enkel onderwerp gaat, mag je uitgebreider zijn: 1000 tot 1800 woorden. Ga de diepte in waar het interessant wordt, in plaats van de breedte.
+
+Geef nu het JSON-object.`;
+}
+
+/** De werkende zoek-URL bij een bron die een zoekopdracht in plaats van een adres heeft. */
+export function searchUrl(query: string, on: 'youtube' | 'web' = 'web'): string {
+  const encoded = encodeURIComponent(query);
+  return on === 'youtube'
+    ? `https://www.youtube.com/results?search_query=${encoded}`
+    : `https://duckduckgo.com/?q=${encoded}`;
+}
+
+/** Het adres waar een bron heen wijst, of die nu een link of een zoekopdracht is. */
+export function resourceUrl(resource: RoadmapResource): string | undefined {
+  if (resource.url) return resource.url;
+  if (resource.query) return searchUrl(resource.query, resource.searchOn ?? 'web');
+  return undefined;
 }

@@ -47,6 +47,7 @@ npm run content:index     # werkt manifest.json bij
 | `kind` | ja | `milestone`, `topic`, `subtopic` of `label` |
 | `parent` | voor alles behalve milestone | id van de node waar dit aan hangt |
 | `side` | nee | `left` of `right`; zonder waarde kiest de layout zelf |
+| `group` | nee | onderwerpen met dezelfde groep en ouder komen naast elkaar op één rij |
 | `optional` | nee | toont "(optioneel)" en telt lichter mee |
 | `summary` | aanbevolen | één tot drie zinnen; verschijnt als tooltip en in het paneel |
 | `body` | nee | pad naar markdown, bijvoorbeeld `nodes/mijn-onderwerp.md` |
@@ -63,7 +64,8 @@ npm run content:index     # werkt manifest.json bij
 - **`milestone`** — hoofdstap op de verticale ruggengraat. Geel, groot.
 - **`topic`** — onderwerp dat aan een milestone hangt. Paars, links of rechts.
 - **`subtopic`** — detail onder een topic, aan de buitenkant.
-- **`label`** — tekstblok zonder voortgang, voor toelichting in de graph.
+- **`label`** — uitlegkader zonder voortgang. De `summary` is de tekst die je in
+  de kaart ziet; handig voor een begrip dat verwarring geeft.
 
 ### Bronnen
 
@@ -78,8 +80,19 @@ npm run content:index     # werkt manifest.json bij
 }
 ```
 
+Of, in plaats van een vast adres, een **zoekopdracht** waar de app zelf een
+werkende zoeklink van maakt:
+
+```json
+{ "title": "Uitleg in video", "query": "oauth 2 authorization code flow explained", "searchOn": "youtube" }
+```
+
+Dat bestaat omdat een AI links naar specifieke videos en artikelen met overtuiging
+verzint. Een zoekopdracht kan niet dood zijn en levert bovendien het actuele
+materiaal op. `searchOn` is `youtube` of `web`.
+
 `type` is een van: `article`, `video`, `book`, `course`, `standard`, `tool`,
-`podcast`, `practice`.
+`podcast`, `practice`. Een bron met een `query` wordt automatisch `search`.
 
 ### Flashcards
 
@@ -110,13 +123,15 @@ een verwijzing niet klopt.
 
 Je geeft geen posities op; die worden uitgerekend in `src/lib/layout.ts`:
 
-- milestones staan onder elkaar in het midden
-- de topics van een milestone verdelen zich over links en rechts
-- subtopics staan aan de buitenkant, naast hun topic
-- de hoogte van elke band volgt uit wat eraan hangt
+- fasen staan onder elkaar op een ruggengraat die licht slingert
+- de onderwerpen van een fase vormen clusters links en rechts ervan
+- details staan ingesprongen onder hun onderwerp, met een gestippelde haak ernaartoe
+- blokken zijn zo breed als hun tekst, met een maximum per soort
+- onderwerpen met dezelfde `group` komen naast elkaar op een rij
+- elke fase krijgt een eigen tint, afgeleid van de kleur van het leerpad
 
-Wil je meer sturing, gebruik dan `side` op een topic. Meer dan dat is zelden nodig;
-als een leerpad scheef oogt, is het vaak een teken dat een milestone te veel
+Wil je meer sturing, gebruik dan `side` op een onderwerp. Meer dan dat is zelden
+nodig; als een leerpad scheef oogt, is het vaak een teken dat een fase te veel
 onderwerpen heeft.
 
 ## Markdown

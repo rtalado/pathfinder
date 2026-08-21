@@ -26,7 +26,8 @@ export type ResourceType =
   | 'standard'
   | 'tool'
   | 'podcast'
-  | 'practice';
+  | 'practice'
+  | 'search';
 
 export interface RoadmapResource {
   /** Stabiele sleutel voor de leesstatus; valt terug op de url als hij ontbreekt. */
@@ -34,6 +35,15 @@ export interface RoadmapResource {
   title: string;
   url?: string;
   type: ResourceType;
+  /**
+   * Een zoekopdracht in plaats van een vaste link. De app bouwt daar zelf een
+   * werkende zoek-URL van. Bedoeld omdat een AI links naar specifieke video's en
+   * artikelen met overtuiging verzint, terwijl een zoekopdracht altijd werkt en
+   * bovendien het actuele materiaal oplevert.
+   */
+  query?: string;
+  /** Waar die zoekopdracht heen gaat. */
+  searchOn?: 'youtube' | 'web';
   /** Korte toelichting: waarom is dit de moeite waard. */
   note?: string;
   free?: boolean;
@@ -62,6 +72,12 @@ export interface RoadmapNode {
   parent?: string;
   /** Handmatige plaatsing; zonder waarde kiest de layout zelf links of rechts. */
   side?: 'left' | 'right';
+  /**
+   * Onderwerpen met dezelfde groep en dezelfde ouder komen naast elkaar op één
+   * rij te staan, zoals "Python | Ruby | Go". Scheelt hoogte en leest als een
+   * keuzelijst in plaats van als losse stappen.
+   */
+  group?: string;
   /** Niet nodig om het pad af te ronden, maar wel nuttig. */
   optional?: boolean;
   /** Een tot drie zinnen; verschijnt in het zijpaneel en als tooltip. */

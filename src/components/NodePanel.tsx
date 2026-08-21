@@ -4,6 +4,9 @@ import { ExternalLink, FileText, FolderOpen, X } from 'lucide-react';
 import type { DocumentMeta, Roadmap, RoadmapNode } from '@/types';
 import { loadCollection, loadRoadmapBody } from '@/lib/content';
 import { canOpenLocalFiles, openExternal, openLocalFile } from '@/lib/platform';
+import { resourceUrl } from '@/lib/roadmapImport';
+import { useRoadmapSource } from '@/lib/hooks';
+import { DeepenNode } from './DeepenNode';
 import {
   selectNote,
   selectResourceRead,
@@ -31,6 +34,7 @@ const RESOURCE_LABELS: Record<string, string> = {
   tool: 'Tool',
   podcast: 'Podcast',
   practice: 'Oefening',
+  search: 'Zoeken',
 };
 
 export function NodePanel({
@@ -53,6 +57,7 @@ export function NodePanel({
   const [docs, setDocs] = useState<LinkedDocument[]>([]);
   const [openError, setOpenError] = useState<string | null>(null);
 
+  const source = useRoadmapSource(roadmap.id);
   const status = selectStatus(state, roadmap.id, node.id);
   const note = selectNote(state, roadmap.id, node.id);
 
@@ -194,13 +199,17 @@ export function NodePanel({
                 {node.summary ?? 'Nog geen uitleg voor dit onderwerp.'}
               </p>
             )}
+            {source === 'user' && node.kind !== 'label' && (
+              <DeepenNode roadmap={roadmap} node={node} />
+            )}
           </>
         )}
 
         {tab === 'bronnen' && (
           <div>
             {node.resources?.map((resource, index) => {
-              const resourceId = resource.id ?? resource.url ?? `r${index}`;
+              const resourceId = resource.id ?? resource.url ?? resource.query ?? `r${index}`;
+              const href = resourceUrl(resource);
               const read = selectResourceRead(state, roadmap.id, node.id, resourceId);
               return (
                 <div key={resourceId} className={`resource${read ? ' resource--read' : ''}`}>
@@ -215,12 +224,12 @@ export function NodePanel({
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="resource__title">
-                      {resource.url ? (
+                      {href ? (
                         <a
-                          href={resource.url}
+                          href={href}
                           onClick={(event) => {
                             event.preventDefault();
-                            openExternal(resource.url!);
+                            openExternal(href);
                           }}
                         >
                           {resource.title} <ExternalLink size={11} />

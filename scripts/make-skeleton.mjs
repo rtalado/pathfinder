@@ -393,7 +393,7 @@ async function depersonalize() {
   const packagePath = path.join(OUT, 'package.json');
   const pkg = JSON.parse(await fs.readFile(packagePath, 'utf8'));
 
-  pkg.version = '0.1.0';
+  // De versie loopt mee met het project, zodat de tag en de app-versie kloppen.
   pkg.author = { name: owner };
   pkg.license = 'MIT';
   pkg.description =
