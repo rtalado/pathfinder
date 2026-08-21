@@ -43,7 +43,7 @@ function Bootstrap() {
       // Bij een prive release-repository heeft de updater een token nodig. Waar de
       // updates vandaan komen staat vast in de build; dit geeft alleen de sleutel.
       if (desktop && RELEASE_IS_PRIVATE) {
-        const token = await readToken();
+        const token = await readToken('github');
         if (token) void desktop.configureUpdater(token);
       }
     })();

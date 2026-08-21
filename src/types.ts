@@ -191,8 +191,18 @@ export interface ProgressState {
   activity: Record<string, number>;
 }
 
+/**
+ * Waar de voortgang heen gaat. GitHub vraagt geen eigen server maar wel een
+ * account; een eigen server draait bij je thuis en laat je gegevens het huis niet
+ * uit. De app werkt met beide precies hetzelfde.
+ */
+export type SyncBackendKind = 'github' | 'server';
+
 export interface SyncSettings {
   enabled: boolean;
+  backend: SyncBackendKind;
+
+  /** GitHub. */
   owner: string;
   repo: string;
   branch: string;
@@ -200,6 +210,10 @@ export interface SyncSettings {
   path: string;
   /** Content ook live uit de repo halen, zodat nieuwe roadmaps zonder app-update binnenkomen. */
   pullContent: boolean;
+
+  /** Eigen server, bijvoorbeeld http://raspberrypi.local:8787 */
+  serverUrl: string;
+
   autoSyncMinutes: number;
 }
 

@@ -1,20 +1,26 @@
 import { create } from 'zustand';
-import type { SyncSettings } from '@/types';
+import type { SyncBackendKind, SyncSettings } from '@/types';
 import { readSetting, writeSetting } from '@/lib/storage';
 import { getSecret, setSecret } from '@/lib/platform';
 
 export type ThemeChoice = 'dark' | 'light' | 'system';
 export type ViewMode = 'graph' | 'list';
 
-const TOKEN_KEY = 'github-token';
+/** Elk soort opslag heeft zijn eigen sleutel, zodat je kunt wisselen zonder opnieuw in te vullen. */
+const TOKEN_KEYS: Record<SyncBackendKind, string> = {
+  github: 'github-token',
+  server: 'server-token',
+};
 
 export const DEFAULT_SYNC: SyncSettings = {
   enabled: false,
+  backend: 'github',
   owner: '',
   repo: 'learnpath-data',
   branch: 'main',
   path: 'sync/progress.json',
   pullContent: true,
+  serverUrl: '',
   autoSyncMinutes: 10,
 };
 
@@ -22,7 +28,7 @@ interface SettingsState {
   sync: SyncSettings;
   theme: ThemeChoice;
   viewMode: ViewMode;
-  /** Alleen of er een token is; de waarde zelf blijft buiten de store. */
+  /** Of er voor de gekozen opslag een token bekend is; de waarde zelf blijft erbuiten. */
   hasToken: boolean;
   tokenChecked: boolean;
 
@@ -32,6 +38,7 @@ interface SettingsState {
   setViewMode(mode: ViewMode): void;
   saveToken(token: string): Promise<void>;
   clearToken(): Promise<void>;
+  refreshToken(): Promise<void>;
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
@@ -43,7 +50,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   tokenChecked: false,
 
   async init() {
-    const token = await getSecret(TOKEN_KEY);
+    const token = await getSecret(TOKEN_KEYS[get().sync.backend]);
     set({ hasToken: Boolean(token), tokenChecked: true });
   },
 
@@ -51,6 +58,8 @@ export const useSettings = create<SettingsState>((set, get) => ({
     const sync = { ...get().sync, ...patch };
     writeSetting('sync', sync);
     set({ sync });
+    // Van opslag gewisseld? Dan hoort er een ander token bij.
+    if (patch.backend) void get().refreshToken();
   },
 
   setTheme(theme) {
@@ -64,16 +73,22 @@ export const useSettings = create<SettingsState>((set, get) => ({
   },
 
   async saveToken(token) {
-    await setSecret(TOKEN_KEY, token.trim() || null);
+    await setSecret(TOKEN_KEYS[get().sync.backend], token.trim() || null);
     set({ hasToken: Boolean(token.trim()) });
   },
 
   async clearToken() {
-    await setSecret(TOKEN_KEY, null);
+    await setSecret(TOKEN_KEYS[get().sync.backend], null);
     set({ hasToken: false });
+  },
+
+  async refreshToken() {
+    const token = await getSecret(TOKEN_KEYS[get().sync.backend]);
+    set({ hasToken: Boolean(token) });
   },
 }));
 
-export function readToken(): Promise<string | null> {
-  return getSecret(TOKEN_KEY);
+/** Het token van de gekozen opslag, of van een specifieke als je die meegeeft. */
+export function readToken(backend?: SyncBackendKind): Promise<string | null> {
+  return getSecret(TOKEN_KEYS[backend ?? useSettings.getState().sync.backend]);
 }

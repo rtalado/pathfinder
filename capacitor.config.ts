@@ -8,7 +8,11 @@ const config: CapacitorConfig = {
   // fetch() naar de contentbestanden net zoals op de desktop.
   server: { androidScheme: 'https' },
   android: {
-    allowMixedContent: false,
+    // De app draait in de webview op https://localhost. Wil je synchroniseren met
+    // een eigen server op je thuisnetwerk, dan is dat vrijwel altijd een adres
+    // zonder https, en dat blokkeert Android standaard. De app praat alleen met
+    // GitHub en met de server die jij zelf instelt.
+    allowMixedContent: true,
     backgroundColor: '#0d1117',
   },
   plugins: {

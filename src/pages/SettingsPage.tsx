@@ -3,19 +3,22 @@ import {
   CheckCircle2,
   ClipboardCopy,
   Download,
+  Github,
   RefreshCw,
+  Server,
   TriangleAlert,
 } from 'lucide-react';
+import type { SyncBackendKind } from '@/types';
 import { Topbar } from '@/components/Topbar';
 import { getRepo, getViewer } from '@/lib/github';
+import { pingServer } from '@/lib/syncBackend';
 import { APP_VERSION, openExternal, platformKind } from '@/lib/platform';
-import { useUpdater } from '@/lib/updates';
+import { RELEASE_SOURCE, useUpdater } from '@/lib/updates';
 import { loadManifest } from '@/lib/content';
 import { useProgress } from '@/store/progressStore';
 import { readToken, useSettings, type ThemeChoice } from '@/store/settingsStore';
 
-const TOKEN_URL =
-  'https://github.com/settings/personal-access-tokens/new';
+const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new';
 
 const PLATFORM_LABELS: Record<string, string> = {
   desktop: 'Windows-app',
@@ -45,6 +48,8 @@ export function SettingsPage() {
   const [contentVersion, setContentVersion] = useState('');
   const [copied, setCopied] = useState(false);
 
+  const onServer = sync.backend === 'server';
+
   useEffect(() => {
     loadManifest()
       .then((manifest) =>
@@ -56,12 +61,28 @@ export function SettingsPage() {
       .catch(() => setContentVersion('onbekend'));
   }, []);
 
+  function chooseBackend(backend: SyncBackendKind) {
+    setSync({ backend });
+    setCheck(null);
+    setTokenInput('');
+  }
+
   async function testConnection() {
     setChecking(true);
     setCheck(null);
     try {
       const token = tokenInput.trim() || (await readToken());
-      if (!token) throw new Error('Vul eerst een token in.');
+      if (!token) throw new Error('Vul eerst een sleutel in.');
+
+      if (onServer) {
+        const info = await pingServer(sync.serverUrl, token);
+        setCheck({
+          ok: true,
+          message: `Verbonden met je server (versie ${info.version}, ${info.documents} document(en)).`,
+        });
+        return;
+      }
+
       const viewer = await getViewer(token);
       const owner = sync.owner.trim() || viewer.login;
       if (!sync.owner.trim()) setSync({ owner });
@@ -87,9 +108,8 @@ export function SettingsPage() {
   }
 
   function exportProgress() {
-    const text = JSON.stringify(progress, null, 2);
     void navigator.clipboard
-      .writeText(text)
+      .writeText(JSON.stringify(progress, null, 2))
       .then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2500);
@@ -99,7 +119,10 @@ export function SettingsPage() {
 
   return (
     <>
-      <Topbar title="Instellingen" subtitle={`versie ${APP_VERSION} · ${PLATFORM_LABELS[platformKind()]}`} />
+      <Topbar
+        title="Instellingen"
+        subtitle={`versie ${APP_VERSION} · ${PLATFORM_LABELS[platformKind()]}`}
+      />
       <div className="content">
         <div className="page stack" style={{ gap: 20 }}>
           {/* ---------- Sync ---------- */}
@@ -107,10 +130,35 @@ export function SettingsPage() {
             <div>
               <h2 style={{ margin: '0 0 4px', fontSize: 16 }}>Synchronisatie</h2>
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-                Je voortgang wordt als JSON-bestand in je eigen prive repository bewaard. Zet je op
-                je telefoon een onderwerp op afgerond, dan staat het bij de volgende sync ook op je
-                pc. Er komt geen andere dienst aan te pas.
+                Je voortgang en je eigen leerpaden worden bewaard op een plek die jij kiest. Zet je
+                op je telefoon een onderwerp op afgerond, dan staat het bij de volgende sync ook op
+                je pc.
               </p>
+            </div>
+
+            <div className="backendpick">
+              <button
+                type="button"
+                className={`backendpick__option${!onServer ? ' backendpick__option--active' : ''}`}
+                onClick={() => chooseBackend('github')}
+              >
+                <Github size={18} />
+                <span className="backendpick__title">Prive GitHub-repository</span>
+                <span className="backendpick__note">
+                  Geen server nodig. Werkt overal waar je internet hebt.
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`backendpick__option${onServer ? ' backendpick__option--active' : ''}`}
+                onClick={() => chooseBackend('server')}
+              >
+                <Server size={18} />
+                <span className="backendpick__title">Eigen server</span>
+                <span className="backendpick__note">
+                  Bijvoorbeeld een Raspberry Pi. Je gegevens verlaten je huis niet.
+                </span>
+              </button>
             </div>
 
             <label className="switch">
@@ -125,37 +173,61 @@ export function SettingsPage() {
                   }
                 }}
               />
-              <span>Synchroniseren via GitHub</span>
+              <span>Synchroniseren aan</span>
             </label>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {onServer ? (
               <div className="field" style={{ margin: 0 }}>
-                <span className="field__label">GitHub-gebruikersnaam</span>
+                <span className="field__label">Adres van je server</span>
                 <input
                   className="input"
-                  value={sync.owner}
-                  placeholder="je GitHub-gebruikersnaam"
-                  onChange={(event) => setSync({ owner: event.target.value })}
+                  value={sync.serverUrl}
+                  placeholder="http://raspberrypi.local:8787"
+                  onChange={(event) => setSync({ serverUrl: event.target.value })}
                 />
+                <span className="field__hint">
+                  Het adres waarop je de LearnPath-server draait. Een IP-adres mag ook, bijvoorbeeld
+                  http://192.168.1.20:8787.
+                </span>
               </div>
-              <div className="field" style={{ margin: 0 }}>
-                <span className="field__label">Repository</span>
-                <input
-                  className="input"
-                  value={sync.repo}
-                  onChange={(event) => setSync({ repo: event.target.value })}
-                />
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="field" style={{ margin: 0 }}>
+                  <span className="field__label">GitHub-gebruikersnaam</span>
+                  <input
+                    className="input"
+                    value={sync.owner}
+                    placeholder="je GitHub-gebruikersnaam"
+                    onChange={(event) => setSync({ owner: event.target.value })}
+                  />
+                </div>
+                <div className="field" style={{ margin: 0 }}>
+                  <span className="field__label">Repository</span>
+                  <input
+                    className="input"
+                    value={sync.repo}
+                    onChange={(event) => setSync({ repo: event.target.value })}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="field" style={{ margin: 0 }}>
-              <span className="field__label">Persoonlijk toegangstoken</span>
+              <span className="field__label">
+                {onServer ? 'Toegangssleutel' : 'Persoonlijk toegangstoken'}
+              </span>
               <div className="row">
                 <input
                   className="input"
                   type="password"
                   value={tokenInput}
-                  placeholder={hasToken ? 'Er is een token opgeslagen' : 'github_pat_...'}
+                  placeholder={
+                    hasToken
+                      ? 'Er is een sleutel opgeslagen'
+                      : onServer
+                        ? 'de sleutel uit je server'
+                        : 'github_pat_...'
+                  }
                   onChange={(event) => setTokenInput(event.target.value)}
                 />
                 <button
@@ -165,7 +237,7 @@ export function SettingsPage() {
                   onClick={async () => {
                     await saveToken(tokenInput);
                     setTokenInput('');
-                    setCheck({ ok: true, message: 'Token opgeslagen.' });
+                    setCheck({ ok: true, message: 'Sleutel opgeslagen.' });
                   }}
                 >
                   Opslaan
@@ -181,17 +253,26 @@ export function SettingsPage() {
                 )}
               </div>
               <span className="field__hint">
-                Maak een fine-grained token met alleen toegang tot deze ene repository en de
-                rechten Contents: read and write.{' '}
-                <a
-                  href={TOKEN_URL}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    openExternal(TOKEN_URL);
-                  }}
-                >
-                  Token aanmaken
-                </a>
+                {onServer ? (
+                  <>
+                    De server toont bij de eerste start een sleutel. Die staat ook in het bestand
+                    token.txt naast zijn gegevens.
+                  </>
+                ) : (
+                  <>
+                    Maak een fine-grained token met alleen toegang tot deze ene repository en de
+                    rechten Contents: read and write.{' '}
+                    <a
+                      href={TOKEN_URL}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        openExternal(TOKEN_URL);
+                      }}
+                    >
+                      Token aanmaken
+                    </a>
+                  </>
+                )}
               </span>
             </div>
 
@@ -228,24 +309,26 @@ export function SettingsPage() {
                 Geavanceerd
               </summary>
               <div style={{ paddingTop: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div className="field">
-                    <span className="field__label">Branch</span>
-                    <input
-                      className="input"
-                      value={sync.branch}
-                      onChange={(event) => setSync({ branch: event.target.value })}
-                    />
+                {!onServer && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="field">
+                      <span className="field__label">Branch</span>
+                      <input
+                        className="input"
+                        value={sync.branch}
+                        onChange={(event) => setSync({ branch: event.target.value })}
+                      />
+                    </div>
+                    <div className="field">
+                      <span className="field__label">Pad in de repo</span>
+                      <input
+                        className="input"
+                        value={sync.path}
+                        onChange={(event) => setSync({ path: event.target.value })}
+                      />
+                    </div>
                   </div>
-                  <div className="field">
-                    <span className="field__label">Pad in de repo</span>
-                    <input
-                      className="input"
-                      value={sync.path}
-                      onChange={(event) => setSync({ path: event.target.value })}
-                    />
-                  </div>
-                </div>
+                )}
                 <div className="field">
                   <span className="field__label">Automatisch synchroniseren (minuten)</span>
                   <input
@@ -260,14 +343,16 @@ export function SettingsPage() {
                     }}
                   />
                 </div>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={sync.pullContent}
-                    onChange={(event) => setSync({ pullContent: event.target.checked })}
-                  />
-                  <span>Nieuwe leerpaden ook meteen ophalen uit de repo</span>
-                </label>
+                {!onServer && (
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={sync.pullContent}
+                      onChange={(event) => setSync({ pullContent: event.target.checked })}
+                    />
+                    <span>Meegeleverde leerpaden ook bijwerken vanuit de repo</span>
+                  </label>
+                )}
               </div>
             </details>
           </section>
@@ -307,7 +392,11 @@ export function SettingsPage() {
                 onClick={() => void updater.check()}
                 disabled={updater.state.kind === 'checking'}
               >
-                {updater.state.kind === 'checking' ? <span className="spinner" /> : <RefreshCw size={14} />}
+                {updater.state.kind === 'checking' ? (
+                  <span className="spinner" />
+                ) : (
+                  <RefreshCw size={14} />
+                )}
                 Controleren
               </button>
               {(updater.state.kind === 'available' || updater.state.kind === 'ready') && (
@@ -338,7 +427,7 @@ export function SettingsPage() {
             )}
 
             <p className="dim" style={{ margin: 0, fontSize: 12 }}>
-              Content: {contentVersion}
+              Updates komen uit {RELEASE_SOURCE}. Content: {contentVersion}
             </p>
           </section>
 

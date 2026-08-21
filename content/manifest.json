@@ -1,6 +1,6 @@
 {
-  "contentVersion": "03bae9f7f8f1ba72",
-  "generatedAt": "2026-08-21T19:04:16.873Z",
+  "contentVersion": "b5d09edd07da8906",
+  "generatedAt": "2026-08-21T19:31:22.903Z",
   "roadmaps": [
     {
       "id": "start",
@@ -38,8 +38,8 @@
     },
     {
       "path": "roadmaps/start/nodes/sync.md",
-      "hash": "9ec7395fbd52defc",
-      "size": 877
+      "hash": "d18061fa62ce5310",
+      "size": 1294
     },
     {
       "path": "roadmaps/start/nodes/zelf-schrijven.md",

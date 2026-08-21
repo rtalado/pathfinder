@@ -102,7 +102,7 @@ export function useUpdater() {
 
     // Een prive repository vraagt om het token dat je bij de sync hebt ingesteld;
     // bij een publieke repository is dat niet nodig.
-    const token = RELEASE_IS_PRIVATE ? await readToken() : null;
+    const token = RELEASE_IS_PRIVATE ? await readToken('github') : null;
     if (RELEASE_IS_PRIVATE && !token) {
       setState({ kind: 'error', message: 'Stel eerst je GitHub-token in bij Synchronisatie.' });
       return;

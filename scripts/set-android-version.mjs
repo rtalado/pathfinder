@@ -67,4 +67,23 @@ if (!gradle.includes('signingConfig ')) {
 
 await fs.writeFile(GRADLE, gradle, 'utf8');
 
+/**
+ * Synchroniseren met een eigen server op je thuisnetwerk gaat vrijwel altijd over
+ * een adres zonder https. Sinds Android 9 blokkeert het systeem dat, tenzij het
+ * hier expliciet wordt toegestaan. Capacitor genereert het manifest zonder deze
+ * regel, dus zetten we hem erin.
+ */
+const MANIFEST = path.join(ROOT, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
+
+let manifest = await fs.readFile(MANIFEST, 'utf8');
+if (!manifest.includes('usesCleartextTraffic')) {
+  // Na de regel met <application, zodat het ook klopt met Unix-regeleindes.
+  manifest = manifest.replace(
+    /<application(\r?\n)/,
+    (_match, newline) => `<application${newline}        android:usesCleartextTraffic="true"${newline}`
+  );
+  await fs.writeFile(MANIFEST, manifest, 'utf8');
+  console.log('Android: verbindingen zonder https toegestaan (voor een eigen sync-server).');
+}
+
 console.log(`Android: versionName ${version}, versionCode ${versionCode}`);

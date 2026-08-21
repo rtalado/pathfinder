@@ -13,7 +13,8 @@ import {
 } from '@/lib/progress';
 import { emptyLibrary, normalizeLibrary } from '@/lib/library';
 import { newCard, reviewCard, type Grade } from '@/lib/srs';
-import { libraryPathFor, syncLibrary, syncProgress } from '@/lib/sync';
+import { syncLibrary, syncProgress } from '@/lib/sync';
+import { githubBackend, serverBackend } from '@/lib/syncBackend';
 import { pullContentFromGitHub } from '@/lib/content';
 import { readToken, useSettings } from './settingsStore';
 
@@ -71,6 +72,15 @@ function scheduleSync(run: () => void) {
 
 /** Onthoudt of er sinds de laatste sync iets aan de leerpaden is veranderd. */
 let libraryDirty = false;
+
+/**
+ * Twee syncs tegelijk botsen op elkaar: de tweede gaat uit van een versie die de
+ * eerste net heeft vervangen. Dat lost zichzelf op, maar het kost een ronde. Bij
+ * het opstarten gebeurt het makkelijk, omdat het venster ook meteen focus krijgt.
+ * Een wijziging die tijdens een sync ontstaat plant altijd zijn eigen sync in, dus
+ * overslaan is veilig.
+ */
+let syncing = false;
 
 export const useProgress = create<ProgressStore>((set, get) => {
   /** Past de voortgang aan, bewaart hem en plant een sync in. */
@@ -202,14 +212,31 @@ export const useProgress = create<ProgressStore>((set, get) => {
     },
 
     async syncNow(options) {
+      if (syncing) return;
       const settings = useSettings.getState().sync;
-      if (!settings.enabled || !settings.owner || !settings.repo) {
+      const configured =
+        settings.enabled &&
+        (settings.backend === 'server'
+          ? Boolean(settings.serverUrl.trim())
+          : Boolean(settings.owner && settings.repo));
+
+      if (!configured) {
         set({ sync: { ...get().sync, phase: 'unconfigured' } });
         return;
       }
+
       const token = await readToken();
       if (!token) {
-        set({ sync: { ...get().sync, phase: 'error', message: 'Geen GitHub-token ingesteld.' } });
+        set({
+          sync: {
+            ...get().sync,
+            phase: 'error',
+            message:
+              settings.backend === 'server'
+                ? 'Geen toegangssleutel voor je server ingesteld.'
+                : 'Geen GitHub-token ingesteld.',
+          },
+        });
         return;
       }
       if (!navigator.onLine) {
@@ -221,24 +248,24 @@ export const useProgress = create<ProgressStore>((set, get) => {
         clearTimeout(syncTimer);
         syncTimer = null;
       }
+      syncing = true;
       set({ sync: { ...get().sync, phase: 'syncing', message: undefined } });
 
       const ref = { owner: settings.owner, repo: settings.repo, branch: settings.branch };
+      const backend =
+        settings.backend === 'server'
+          ? serverBackend(settings.serverUrl, token)
+          : githubBackend(token, ref, settings.path);
 
       try {
-        const outcome = await syncProgress(token, ref, settings.path, get().state);
+        const outcome = await syncProgress(backend, get().state);
         set({ state: outcome.state });
         await kvSet(PROGRESS_KEY, outcome.state);
 
         let extra = '';
 
         if (!options?.skipLibrary || libraryDirty) {
-          const library = await syncLibrary(
-            token,
-            ref,
-            libraryPathFor(settings.path),
-            get().library
-          );
+          const library = await syncLibrary(backend, get().library);
           libraryDirty = false;
           if (library.pulled > 0) {
             set({ library: library.state, contentVersion: get().contentVersion + 1 });
@@ -249,7 +276,7 @@ export const useProgress = create<ProgressStore>((set, get) => {
           await kvSet(LIBRARY_KEY, library.state);
         }
 
-        if (settings.pullContent) {
+        if (settings.backend === 'github' && settings.pullContent) {
           try {
             const result = await pullContentFromGitHub(token, ref);
             if (result.updated) {
@@ -279,6 +306,8 @@ export const useProgress = create<ProgressStore>((set, get) => {
             message: error instanceof Error ? error.message : 'Synchroniseren mislukt.',
           },
         });
+      } finally {
+        syncing = false;
       }
     },
 
