@@ -64,7 +64,13 @@ jobs:
       - name: App bouwen
         run: npm run build
 
-      - name: Versie in het Android-project zetten
+      # Het Android-project staat niet altijd in de repository; Capacitor maakt het
+      # opnieuw aan uit capacitor.config.ts.
+      - name: Android-platform toevoegen als het ontbreekt
+        run: |
+          if [ ! -d android ]; then npx cap add android; fi
+
+      - name: Versie en ondertekening in het Android-project zetten
         run: node scripts/set-android-version.mjs
 
       - name: Webassets naar Android kopiëren

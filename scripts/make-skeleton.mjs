@@ -436,8 +436,28 @@ async function depersonalize() {
 
 }
 
+/**
+ * Leegt de doelmap, maar laat .git en node_modules staan. Zo blijft de
+ * geschiedenis van de publieke repository behouden als je het skelet opnieuw
+ * genereert, en hoeven de pakketten niet opnieuw geinstalleerd te worden.
+ */
+const KEEP = new Set(['.git', 'node_modules']);
+
+async function clearTarget() {
+  let entries;
+  try {
+    entries = await fs.readdir(OUT, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (KEEP.has(entry.name)) continue;
+    await fs.rm(path.join(OUT, entry.name), { recursive: true, force: true });
+  }
+}
+
 async function main() {
-  await fs.rm(OUT, { recursive: true, force: true });
+  await clearTarget();
   await copyTree(ROOT, OUT);
   await writeStarterContent();
   await depersonalize();
