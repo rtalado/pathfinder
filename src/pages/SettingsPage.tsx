@@ -5,6 +5,7 @@ import {
   Download,
   Github,
   RefreshCw,
+  RotateCcw,
   RotateCw,
   Server,
   TriangleAlert,
@@ -15,7 +16,7 @@ import { getRepo, getViewer } from '@/lib/github';
 import { pingServer } from '@/lib/syncBackend';
 import { APP_VERSION, IS_DESKTOP, openExternal, platformKind } from '@/lib/platform';
 import { RELEASE_SOURCE, useUpdate } from '@/store/updateStore';
-import { loadManifest } from '@/lib/content';
+import { clearPulledContent, loadManifest, usingPulledContent } from '@/lib/content';
 import { useProgress } from '@/store/progressStore';
 import { readToken, useSettings, type ThemeChoice } from '@/store/settingsStore';
 
@@ -40,6 +41,8 @@ export function SettingsPage() {
   const syncNow = useProgress((store) => store.syncNow);
   const startAutoSync = useProgress((store) => store.startAutoSync);
   const progress = useProgress((store) => store.state);
+  // Loopt op zodra er content is opgehaald, zodat het overzicht hieronder klopt.
+  const loadedContent = useProgress((store) => store.contentVersion);
 
   const update = useUpdate((store) => store.state);
   const checkUpdate = useUpdate((store) => store.check);
@@ -49,20 +52,29 @@ export function SettingsPage() {
   const [check, setCheck] = useState<{ ok: boolean; message: string } | null>(null);
   const [checking, setChecking] = useState(false);
   const [contentVersion, setContentVersion] = useState('');
+  const [fromRepo, setFromRepo] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const onServer = sync.backend === 'server';
 
   useEffect(() => {
     loadManifest()
-      .then((manifest) =>
+      .then((manifest) => {
         setContentVersion(
           `${manifest.contentVersion} · ${manifest.roadmaps.length} leerpaden · ` +
             new Date(manifest.generatedAt).toLocaleDateString('nl-NL')
-        )
-      )
+        );
+        setFromRepo(usingPulledContent());
+      })
       .catch(() => setContentVersion('onbekend'));
-  }, []);
+  }, [loadedContent]);
+
+  /** Gooit de opgehaalde content weg en toont weer wat er met de app is meegeleverd. */
+  async function resetContent() {
+    await clearPulledContent();
+    setFromRepo(false);
+    useProgress.setState({ contentVersion: useProgress.getState().contentVersion + 1 });
+  }
 
   function chooseBackend(backend: SyncBackendKind) {
     setSync({ backend });
@@ -447,8 +459,16 @@ export function SettingsPage() {
             )}
 
             <p className="dim" style={{ margin: 0, fontSize: 12 }}>
-              Updates komen uit {RELEASE_SOURCE}. Content: {contentVersion}
+              Updates komen uit {RELEASE_SOURCE}. Content: {contentVersion} (
+              {fromRepo ? 'opgehaald uit je repository' : 'meegeleverd met de app'})
             </p>
+            {fromRepo && (
+              <div className="row">
+                <button type="button" className="btn" onClick={() => void resetContent()}>
+                  <RotateCcw size={14} /> Terug naar de meegeleverde leerpaden
+                </button>
+              </div>
+            )}
           </section>
 
           {/* ---------- Gegevens ---------- */}

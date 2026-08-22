@@ -263,6 +263,7 @@ export const useProgress = create<ProgressStore>((set, get) => {
         await kvSet(PROGRESS_KEY, outcome.state);
 
         let extra = '';
+        let contentError: string | null = null;
 
         if (!options?.skipLibrary || libraryDirty) {
           const library = await syncLibrary(backend, get().library);
@@ -278,24 +279,40 @@ export const useProgress = create<ProgressStore>((set, get) => {
 
         if (settings.backend === 'github' && settings.pullContent) {
           try {
-            const result = await pullContentFromGitHub(token, ref);
-            if (result.updated) {
+            const result = await pullContentFromGitHub(token, ref, (done, total) => {
+              // Een compleet leerpad zijn honderden bestanden. Zonder teller lijkt de
+              // app tijdens het ophalen stil te staan.
+              set({
+                sync: {
+                  ...get().sync,
+                  phase: 'syncing',
+                  message: `Content ophalen: ${done} van ${total} bestanden.`,
+                },
+              });
+            });
+            if (result.status === 'updated') {
               set({ contentVersion: get().contentVersion + 1 });
               extra += ` ${result.changedFiles} contentbestand(en) bijgewerkt.`;
             }
           } catch (error) {
-            // Content ophalen is bijvangst; het mag de voortgangssync niet laten mislukken.
-            console.warn('Content bijwerken mislukt:', error);
+            // De voortgang staat op dit punt al veilig in de opslag, dus de sync zelf
+            // is geslaagd. Toch melden wat er misging: anders klik je op
+            // synchroniseren, verschijnen je leerpaden niet, en zegt de app niets.
+            contentError = error instanceof Error ? error.message : String(error);
           }
         }
 
         set({
           sync: {
-            phase: 'ok',
+            phase: contentError ? 'error' : 'ok',
             lastSyncedAt: Date.now(),
             pulled: outcome.pulled,
             pushed: outcome.pushed,
-            message: options?.silent ? undefined : `Gesynchroniseerd.${extra}`,
+            message: contentError
+              ? `Voortgang bijgewerkt, maar content ophalen mislukte: ${contentError}`
+              : options?.silent && !extra
+                ? undefined
+                : `Gesynchroniseerd.${extra}`,
           },
         });
       } catch (error) {

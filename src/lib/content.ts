@@ -3,8 +3,8 @@ import type {
   DocumentCollection,
   Roadmap,
 } from '@/types';
-import { kvGet, kvSet } from './storage';
-import { getRawFile, type RepoRef } from './github';
+import { kvDelete, kvGet, kvKeys, kvSet } from './storage';
+import { GitHubError, getRawFile, type RepoRef } from './github';
 
 /**
  * Content komt uit twee bronnen:
@@ -40,15 +40,31 @@ export async function loadManifest(force = false): Promise<ContentManifest> {
   bundledManifest = JSON.parse(await fetchBundled('manifest.json')) as ContentManifest;
   const cached = await kvGet<ContentManifest>(CACHE_MANIFEST);
 
-  // De gecachete versie telt alleen als hij nieuwer is dan wat er is meegeleverd;
-  // na een app-update is de meegeleverde content vaak juist de recentste.
-  const useCached =
-    cached &&
-    cached.contentVersion !== bundledManifest.contentVersion &&
-    Date.parse(cached.generatedAt) > Date.parse(bundledManifest.generatedAt);
-
-  activeManifest = useCached ? cached : bundledManifest;
+  // Is er content uit je eigen repository opgehaald, dan wint die. Eerder stond
+  // hier een vergelijking op datum, maar die tijdstempels komen uit twee losse
+  // repositories en zeggen niets over elkaar: content van gisteren uit jouw repo
+  // werd dan overruled door een app die vandaag is gebouwd, waarna het ophalen
+  // wel gebeurde maar het resultaat werd weggegooid.
+  activeManifest = cached ?? bundledManifest;
   return activeManifest;
+}
+
+/** Of de app op dit moment content uit een repository toont in plaats van wat er is meegeleverd. */
+export function usingPulledContent(): boolean {
+  return Boolean(activeManifest && bundledManifest && activeManifest !== bundledManifest);
+}
+
+/** Terug naar de content die met de app is meegeleverd. */
+export async function clearPulledContent(): Promise<void> {
+  const keys = await kvKeys();
+  await Promise.all(
+    keys
+      .filter((key) => key === CACHE_MANIFEST || key.startsWith(CACHE_FILE_PREFIX))
+      .map((key) => kvDelete(key))
+  );
+  activeManifest = bundledManifest;
+  roadmapCache.clear();
+  collectionCache.clear();
 }
 
 export function getBundledManifest(): ContentManifest | null {
@@ -131,11 +147,11 @@ export async function loadDocument(collectionId: string, documentId: string): Pr
   return parseFrontMatter(await loadFile(doc.docPath));
 }
 
-export interface ContentUpdateResult {
-  updated: boolean;
-  changedFiles: number;
-  contentVersion: string;
-}
+export type ContentUpdateResult =
+  /** De repository draagt geen content; dat is geen fout, alleen een lege datarepo. */
+  | { status: 'none' }
+  | { status: 'current'; contentVersion: string }
+  | { status: 'updated'; changedFiles: number; contentVersion: string };
 
 /**
  * Haalt de content uit de repo op als die verschilt van wat de app nu gebruikt.
@@ -148,10 +164,19 @@ export async function pullContentFromGitHub(
   onProgress?: (done: number, total: number) => void
 ): Promise<ContentUpdateResult> {
   const current = await loadManifest();
-  const remote = JSON.parse(await getRawFile(token, ref, 'content/manifest.json')) as ContentManifest;
+
+  let remote: ContentManifest;
+  try {
+    remote = JSON.parse(await getRawFile(token, ref, 'content/manifest.json')) as ContentManifest;
+  } catch (error) {
+    // Een repository die alleen je voortgang bewaart heeft geen content/manifest.json.
+    // Dat is de normale situatie voor wie de app gewoon gebruikt, dus geen fout.
+    if (error instanceof GitHubError && error.status === 404) return { status: 'none' };
+    throw error;
+  }
 
   if (remote.contentVersion === current.contentVersion) {
-    return { updated: false, changedFiles: 0, contentVersion: current.contentVersion };
+    return { status: 'current', contentVersion: current.contentVersion };
   }
 
   const currentHashes = new Map(current.files.map((file) => [file.path, file.hash]));
@@ -179,7 +204,7 @@ export async function pullContentFromGitHub(
   roadmapCache.clear();
   collectionCache.clear();
 
-  return { updated: true, changedFiles: changed.length, contentVersion: remote.contentVersion };
+  return { status: 'updated', changedFiles: changed.length, contentVersion: remote.contentVersion };
 }
 
 export function clearContentCaches(): void {
