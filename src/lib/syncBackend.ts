@@ -32,9 +32,18 @@ export interface SyncBackend {
   write(name: DocumentName, text: string, version: string | null): Promise<SyncDocument>;
 }
 
+/**
+ * De opslag wilde niet schrijven omdat er iets veranderd was sinds we lazen.
+ *
+ * Dat hoeft niet te betekenen dat een ander apparaat bezig was. GitHub maakt van
+ * elke schrijfactie een commit, en twee commits vlak na elkaar op dezelfde branch
+ * leveren ook een 409 op: de branch is dan al verschoven door onze eigen vorige
+ * schrijfactie. Vandaar dat de melding niemand de schuld geeft en de synclaag het
+ * gewoon opnieuw probeert.
+ */
 export class SyncConflict extends Error {
-  constructor() {
-    super('Een ander apparaat was net eerder.');
+  constructor(readonly detail?: string) {
+    super(detail ? `De opslag was net gewijzigd: ${detail}` : 'De opslag was net gewijzigd.');
     this.name = 'SyncConflict';
   }
 }
@@ -73,7 +82,7 @@ export function githubBackend(token: string, ref: RepoRef, basePath: string): Sy
         return { text, version: result.sha };
       } catch (error) {
         if (error instanceof GitHubError && (error.status === 409 || error.status === 422)) {
-          throw new SyncConflict();
+          throw new SyncConflict(error.message);
         }
         throw error;
       }
@@ -154,7 +163,7 @@ export function serverBackend(url: string, token: string): SyncBackend {
         method: 'PUT',
         body: JSON.stringify({ version, data: text }),
       });
-      if (response.status === 409) throw new SyncConflict();
+      if (response.status === 409) throw new SyncConflict(`versie ${version ?? 'nieuw'} was verlopen`);
       if (!response.ok) {
         throw new ServerError(`Opslaan mislukt (${response.status}).`, response.status);
       }

@@ -14,6 +14,11 @@ export function emptyLibrary(): RoadmapLibrary {
   return { schema: LIBRARY_SCHEMA, roadmaps: {} };
 }
 
+/** Of er nog geen enkel eigen leerpad is, ook geen verwijderd exemplaar. */
+export function isLibraryEmpty(library: RoadmapLibrary): boolean {
+  return Object.keys(library.roadmaps).length === 0;
+}
+
 export function normalizeLibrary(input: unknown): RoadmapLibrary {
   if (!input || typeof input !== 'object') return emptyLibrary();
   const raw = input as Partial<RoadmapLibrary>;

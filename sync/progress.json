@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "nodes": {
+    "start/basis": {
+      "value": "todo",
+      "updatedAt": 1787341381182
+    },
+    "iam/basis": {
+      "value": "todo",
+      "updatedAt": 1787343875010
+    },
+    "iam/basis-aaa": {
+      "value": "done",
+      "updatedAt": 1787344226023
+    },
+    "iam/basis-drivers": {
+      "value": "done",
+      "updatedAt": 1787344234436
+    },
+    "blender-van-nul-tot-3d/fase-1-navigatie": {
+      "value": "done",
+      "updatedAt": 1787400807598
+    }
+  },
+  "notes": {},
+  "resources": {},
+  "cards": {},
+  "activity": {
+    "2026-08-21": 5,
+    "2026-08-22": 1
+  }
+}

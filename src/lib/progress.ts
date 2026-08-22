@@ -6,6 +6,17 @@ export function emptyProgress(): ProgressState {
   return { schema: PROGRESS_SCHEMA, nodes: {}, notes: {}, resources: {}, cards: {}, activity: {} };
 }
 
+/** Of er nog helemaal niets is bijgehouden. */
+export function isProgressEmpty(state: ProgressState): boolean {
+  return (
+    Object.keys(state.nodes).length === 0 &&
+    Object.keys(state.notes).length === 0 &&
+    Object.keys(state.resources).length === 0 &&
+    Object.keys(state.cards).length === 0 &&
+    Object.keys(state.activity).length === 0
+  );
+}
+
 export function nodeKey(roadmapId: string, nodeId: string): string {
   return `${roadmapId}/${nodeId}`;
 }
