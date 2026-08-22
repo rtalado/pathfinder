@@ -482,6 +482,51 @@ a:hover {
   }
 }
 
+/* ---------- Updateknop in de balk ---------- */
+
+.updatebadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.updatebadge--busy {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.updatebadge--ready {
+  background: var(--status-done-soft);
+  border-color: var(--status-done);
+  color: var(--status-done);
+}
+
+.updatebadge--ready:hover:not(:disabled) {
+  background: var(--status-done);
+  color: #06210c;
+}
+
+.updatebadge--ready:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+@media (max-width: 860px) {
+  /* Op een smal scherm is er geen ruimte voor de tekst; het bolletje volstaat. */
+  .updatebadge {
+    padding: 5px 8px;
+    font-size: 0;
+    gap: 0;
+  }
+}
+
 /* ---------- Keuze tussen twee soorten opslag ---------- */
 
 .backendpick {

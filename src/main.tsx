@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import { App } from './App';
 import { desktop } from './lib/platform';
-import { RELEASE_IS_PRIVATE } from './lib/updates';
+import { RELEASE_IS_PRIVATE, useUpdate } from './store/updateStore';
 import { useProgress } from './store/progressStore';
 import { readToken, useSettings } from './store/settingsStore';
 import './index.css';
@@ -29,6 +29,7 @@ function Bootstrap() {
   useEffect(() => {
     const progress = useProgress.getState();
     const settings = useSettings.getState();
+    const stopListening = useUpdate.getState().listen();
 
     void (async () => {
       await settings.init();
@@ -46,6 +47,9 @@ function Bootstrap() {
         const token = await readToken('github');
         if (token) void desktop.configureUpdater(token);
       }
+
+      // Buiten Electron kijkt niemand vanzelf; daar doet de app het zelf.
+      if (!desktop) void useUpdate.getState().check({ silent: true });
     })();
 
     // Terugkomen in het venster is het moment waarop het andere apparaat iets
@@ -61,6 +65,7 @@ function Bootstrap() {
     return () => {
       window.removeEventListener('focus', onFocus);
       useProgress.getState().stopAutoSync();
+      stopListening();
     };
   }, []);
 

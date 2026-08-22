@@ -235,7 +235,10 @@ ipcMain.handle('updater:check', async () => {
   await autoUpdater.checkForUpdates();
 });
 ipcMain.handle('updater:install', () => {
-  if (autoUpdater) autoUpdater.quitAndInstall();
+  // Stil installeren en daarna zelf weer opstarten. Zonder die twee vlaggen toont
+  // NSIS het setup-venster en blijft de app na afloop dicht; dan moet je hem elke
+  // keer met de hand door de installatie heen loodsen.
+  if (autoUpdater) autoUpdater.quitAndInstall(true, true);
 });
 
 // ---------------------------------------------------------------------------

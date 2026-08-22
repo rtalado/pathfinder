@@ -5,6 +5,7 @@ import {
   Download,
   Github,
   RefreshCw,
+  RotateCw,
   Server,
   TriangleAlert,
 } from 'lucide-react';
@@ -12,8 +13,8 @@ import type { SyncBackendKind } from '@/types';
 import { Topbar } from '@/components/Topbar';
 import { getRepo, getViewer } from '@/lib/github';
 import { pingServer } from '@/lib/syncBackend';
-import { APP_VERSION, openExternal, platformKind } from '@/lib/platform';
-import { RELEASE_SOURCE, useUpdater } from '@/lib/updates';
+import { APP_VERSION, IS_DESKTOP, openExternal, platformKind } from '@/lib/platform';
+import { RELEASE_SOURCE, useUpdate } from '@/store/updateStore';
 import { loadManifest } from '@/lib/content';
 import { useProgress } from '@/store/progressStore';
 import { readToken, useSettings, type ThemeChoice } from '@/store/settingsStore';
@@ -40,7 +41,9 @@ export function SettingsPage() {
   const startAutoSync = useProgress((store) => store.startAutoSync);
   const progress = useProgress((store) => store.state);
 
-  const updater = useUpdater();
+  const update = useUpdate((store) => store.state);
+  const checkUpdate = useUpdate((store) => store.check);
+  const installUpdate = useUpdate((store) => store.install);
 
   const [tokenInput, setTokenInput] = useState('');
   const [check, setCheck] = useState<{ ok: boolean; message: string } | null>(null);
@@ -380,7 +383,7 @@ export function SettingsPage() {
               <h2 style={{ margin: '0 0 4px', fontSize: 16 }}>Bijwerken</h2>
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>
                 {platformKind() === 'desktop'
-                  ? 'De Windows-app controleert bij het opstarten op nieuwe versies en installeert die bij het afsluiten.'
+                  ? 'De app controleert bij het opstarten op een nieuwe versie en haalt die op de achtergrond op. Klik daarna op herstarten: hij werkt zichzelf stil bij en komt terug.'
                   : 'De Android-app kijkt of er een nieuwere APK klaarstaat. Installeren doe je zelf; Android vraagt daarbij eenmalig om toestemming.'}
               </p>
             </div>
@@ -389,41 +392,58 @@ export function SettingsPage() {
               <button
                 type="button"
                 className="btn"
-                onClick={() => void updater.check()}
-                disabled={updater.state.kind === 'checking'}
+                onClick={() => void checkUpdate()}
+                disabled={update.kind === 'checking' || update.kind === 'downloading'}
               >
-                {updater.state.kind === 'checking' ? (
-                  <span className="spinner" />
-                ) : (
-                  <RefreshCw size={14} />
-                )}
+                {update.kind === 'checking' ? <span className="spinner" /> : <RefreshCw size={14} />}
                 Controleren
               </button>
-              {(updater.state.kind === 'available' || updater.state.kind === 'ready') && (
-                <button type="button" className="btn btn--primary" onClick={updater.install}>
-                  <Download size={14} />
-                  {updater.state.kind === 'ready' ? 'Nu installeren' : 'Ophalen'}
+              {update.kind === 'ready' && (
+                <button type="button" className="btn btn--primary" onClick={installUpdate}>
+                  <RotateCw size={14} /> Herstarten en bijwerken
+                </button>
+              )}
+              {update.kind === 'available' && !IS_DESKTOP && (
+                <button type="button" className="btn btn--primary" onClick={installUpdate}>
+                  <Download size={14} /> APK ophalen
                 </button>
               )}
             </div>
 
-            {updater.state.kind === 'none' && (
-              <div className="banner banner--ok">Je hebt de nieuwste versie.</div>
+            {update.kind === 'none' && (
+              <div className="banner banner--ok">Je hebt de nieuwste versie ({APP_VERSION}).</div>
             )}
-            {updater.state.kind === 'available' && (
-              <div className="banner">Versie {updater.state.version} staat klaar.</div>
-            )}
-            {updater.state.kind === 'downloading' && (
-              <div className="banner">Downloaden… {updater.state.percent}%</div>
-            )}
-            {updater.state.kind === 'ready' && (
-              <div className="banner banner--ok">
-                Versie {updater.state.version} is gedownload en wordt geinstalleerd zodra je de app
-                afsluit.
+            {update.kind === 'norelease' && (
+              <div className="banner banner--warn">
+                <TriangleAlert size={15} />
+                <span>
+                  In {RELEASE_SOURCE} staat nog geen enkele release. Zolang daar niets staat, kan de
+                  app niets ophalen. Publiceer er een release met een versietag.
+                </span>
               </div>
             )}
-            {updater.state.kind === 'error' && (
-              <div className="banner banner--error">{updater.state.message}</div>
+            {update.kind === 'available' && (
+              <div className="banner">
+                Versie {update.version} staat klaar
+                {IS_DESKTOP ? ' en wordt op de achtergrond opgehaald.' : '.'}
+              </div>
+            )}
+            {update.kind === 'downloading' && (
+              <>
+                <div className="banner">Ophalen… {update.percent}%</div>
+                <div className="progress">
+                  <div className="progress__bar" style={{ width: `${update.percent}%` }} />
+                </div>
+              </>
+            )}
+            {update.kind === 'ready' && (
+              <div className="banner banner--ok">
+                Versie {update.version} is opgehaald. Klik op herstarten; de app sluit, werkt zichzelf
+                stil bij en start opnieuw op. Je hoeft geen installatiebestand te draaien.
+              </div>
+            )}
+            {update.kind === 'error' && (
+              <div className="banner banner--error">{update.message}</div>
             )}
 
             <p className="dim" style={{ margin: 0, fontSize: 12 }}>

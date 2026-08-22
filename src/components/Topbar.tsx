@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { SyncBadge } from './SyncBadge';
+import { UpdateBadge } from './UpdateBadge';
 
 export function Topbar({
   title,
@@ -28,6 +29,7 @@ export function Topbar({
       </div>
       <div className="topbar__spacer" />
       {children}
+      <UpdateBadge />
       <SyncBadge />
     </header>
   );
