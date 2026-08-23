@@ -22,6 +22,15 @@ export interface RepoRef {
   branch: string;
 }
 
+/**
+ * GitHub stuurt bij een ingelogd verzoek `Cache-Control: private, max-age=60` mee.
+ * De browser (en de WebView op Android nog fanatieker) bewaart het antwoord dan een
+ * minuut lang. Vlak na een eigen schrijfactie krijg je zo de oude versie terug, met
+ * de oude sha, en weigert GitHub de volgende schrijfactie met "does not match" —
+ * ook als je het enige apparaat bent. Vandaar: nooit uit de cache.
+ */
+const NO_CACHE: RequestInit = { cache: 'no-store' };
+
 function headers(token: string, accept = 'application/vnd.github+json'): HeadersInit {
   return {
     Authorization: `Bearer ${token}`,
@@ -75,7 +84,7 @@ export async function getFile(
   path: string
 ): Promise<RemoteFile | null> {
   const url = `${API}/repos/${ref.owner}/${ref.repo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(ref.branch)}`;
-  const response = await fetch(url, { headers: headers(token) });
+  const response = await fetch(url, { ...NO_CACHE, headers: headers(token) });
   if (response.status === 404) return null;
   if (!response.ok) await fail(response);
   const body = await response.json();
@@ -86,7 +95,10 @@ export async function getFile(
 /** Haalt de ruwe inhoud op; scheelt base64-werk bij het binnenhalen van content. */
 export async function getRawFile(token: string, ref: RepoRef, path: string): Promise<string> {
   const url = `${API}/repos/${ref.owner}/${ref.repo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(ref.branch)}`;
-  const response = await fetch(url, { headers: headers(token, 'application/vnd.github.raw+json') });
+  const response = await fetch(url, {
+    ...NO_CACHE,
+    headers: headers(token, 'application/vnd.github.raw+json'),
+  });
   if (!response.ok) await fail(response);
   return response.text();
 }
@@ -132,7 +144,10 @@ export interface RepoInfo {
 }
 
 export async function getRepo(token: string, owner: string, repo: string): Promise<RepoInfo> {
-  const response = await fetch(`${API}/repos/${owner}/${repo}`, { headers: headers(token) });
+  const response = await fetch(`${API}/repos/${owner}/${repo}`, {
+    ...NO_CACHE,
+    headers: headers(token),
+  });
   if (!response.ok) await fail(response);
   const body = await response.json();
   return {
@@ -144,7 +159,7 @@ export async function getRepo(token: string, owner: string, repo: string): Promi
 }
 
 export async function getViewer(token: string): Promise<{ login: string }> {
-  const response = await fetch(`${API}/user`, { headers: headers(token) });
+  const response = await fetch(`${API}/user`, { ...NO_CACHE, headers: headers(token) });
   if (!response.ok) await fail(response);
   const body = await response.json();
   return { login: body.login };
@@ -174,6 +189,7 @@ export async function getLatestRelease(
   repo: string
 ): Promise<Release | null> {
   const response = await fetch(`${API}/repos/${owner}/${repo}/releases/latest`, {
+    ...NO_CACHE,
     headers: token
       ? headers(token)
       : { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },

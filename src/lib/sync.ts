@@ -30,7 +30,7 @@ interface DocumentHandler<T> {
   isEmpty(state: T): boolean;
 }
 
-const MAX_ATTEMPTS = 4;
+const MAX_ATTEMPTS = 5;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -43,6 +43,8 @@ async function syncDocument<T>(
   let attempt = 0;
   let working = local;
   let lastConflict: SyncConflict | null = null;
+  /** De versie waarmee de vorige poging werd afgewezen. */
+  let staleVersion: string | null = null;
 
   for (;;) {
     attempt += 1;
@@ -75,10 +77,13 @@ async function syncDocument<T>(
             `iets gewijzigd was. Probeer het zo nog eens. (${lastConflict.detail ?? 'geen details'})`
         );
       }
-      // Even wachten voordat we het opnieuw proberen. Bij GitHub is de branch vaak
-      // alleen nog niet bijgekomen na onze eigen vorige schrijfactie; meteen
-      // opnieuw proberen levert dan gewoon dezelfde weigering op.
-      await wait(400 * attempt + Math.random() * 250);
+      // Krijgen we bij het opnieuw lezen exact de versie terug die net is
+      // afgewezen, dan kijken we naar iets ouds: de opslag loopt achter op zijn
+      // eigen schrijfactie. Meteen opnieuw proberen levert dan dezelfde weigering,
+      // dus wachten we in dat geval langer.
+      const looksStale = remote?.version != null && remote.version === staleVersion;
+      staleVersion = remote?.version ?? null;
+      await wait((looksStale ? 1500 : 400) * attempt + Math.random() * 400);
       working = merged.state;
     }
   }

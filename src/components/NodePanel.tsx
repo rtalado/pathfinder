@@ -133,7 +133,11 @@ export function NodePanel({
   }, [node]);
 
   return (
-    <aside className="panel">
+    <>
+      {/* Op een telefoon vult het paneel het scherm; de achtergrond vangt de tik
+          ernaast op, zodat sluiten niet alleen via het kruisje kan. */}
+      <div className="panel__scrim" onClick={onClose} aria-hidden="true" />
+      <aside className="panel" role="dialog" aria-label={node.title}>
       <header className="panel__head">
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="panel__title">{node.title}</div>
@@ -306,6 +310,7 @@ export function NodePanel({
           </div>
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

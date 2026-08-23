@@ -86,9 +86,12 @@ export function RoadmapPage() {
           type="button"
           className="btn btn--sm"
           onClick={() => setViewMode(viewMode === 'graph' ? 'list' : 'graph')}
-          title={viewMode === 'graph' ? 'Naar lijstweergave' : 'Naar graphweergave'}
+          title={viewMode === 'graph' ? 'Naar lijstweergave' : 'Naar kaartweergave'}
+          aria-label={viewMode === 'graph' ? 'Naar lijstweergave' : 'Naar kaartweergave'}
         >
           {viewMode === 'graph' ? <List size={15} /> : <Network size={15} />}
+          {/* Op een telefoon is een icoon alleen te raadselachtig om te vinden. */}
+          <span className="btn__label">{viewMode === 'graph' ? 'Lijst' : 'Kaart'}</span>
         </button>
       </Topbar>
 

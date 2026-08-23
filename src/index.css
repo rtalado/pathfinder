@@ -917,8 +917,13 @@ a:hover {
 
 /* ---------- Zijpaneel ---------- */
 
+/*
+ * Aan het venster, niet aan de inhoud. Stond het paneel absoluut binnen .content,
+ * dan hing het aan de bovenkant van het scrollgebied: zodra je de pagina erachter
+ * bewoog, schoof het paneel mee uit beeld. Op een telefoon was daar geen weg terug.
+ */
 .panel {
-  position: absolute;
+  position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
@@ -928,8 +933,23 @@ a:hover {
   background: var(--surface);
   border-left: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
-  z-index: 20;
+  z-index: 60;
   animation: slide-in 0.18s ease;
+  overscroll-behavior: contain;
+}
+
+.panel__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(4, 6, 12, 0.5);
+  animation: fade-in 0.18s ease;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }
 
 @keyframes slide-in {
@@ -1355,6 +1375,10 @@ a:hover {
 
 /* ---------- Mobiel ---------- */
 
+.btn__label {
+  display: none;
+}
+
 .mobilenav {
   display: none;
 }
@@ -1405,6 +1429,30 @@ a:hover {
   .panel {
     width: 100%;
     border-left: none;
+  }
+
+  /* Onder de statusbalk beginnen en boven de navigatiebalk eindigen. */
+  .panel__head {
+    padding-top: calc(14px + env(safe-area-inset-top));
+  }
+
+  .panel__body {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  }
+
+  /* Tabs en statusknoppen zijn met een vinger aan te wijzen. */
+  .tab {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  .btn__label {
+    display: inline;
+  }
+
+  /* De knoppen van de kaartweergave blijven vrij van de navigatiebalk. */
+  .react-flow__controls {
+    bottom: calc(14px + env(safe-area-inset-bottom)) !important;
   }
 
   .grid {

@@ -120,6 +120,9 @@ async function serverRequest(
   let response: Response;
   try {
     response = await fetch(`${url}${path}`, {
+      // Nooit uit de cache: anders lees je vlak na je eigen schrijfactie de oude
+      // versie terug en denkt de server dat je van een verouderde versie uitgaat.
+      cache: 'no-store',
       ...init,
       headers: {
         ...(init?.headers ?? {}),

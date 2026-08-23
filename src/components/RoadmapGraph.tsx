@@ -237,7 +237,16 @@ function Flow({ roadmap, statusOf, noteOf, selectedId, onSelect, onCycleStatus }
     const { width, height } = element.getBoundingClientRect();
     if (!width || !height) return;
 
-    const zoom = Math.min(1, width / layout.width, height / layout.height);
+    // Op een breed scherm past de hele plattegrond in beeld. Op een telefoon zou
+    // dat neerkomen op een zoom van rond de 0.4: je ziet dan alles, maar je leest
+    // niets meer. Daar kiezen we de zoom waarbij het breedste blokje net past, en
+    // pan of knijp je zelf verder. De ruggengraat staat daarbij in het midden.
+    const narrow = width < 760;
+    const widest = layout.nodes.reduce((max, item) => Math.max(max, item.width), 1);
+    const zoom = narrow
+      ? Math.min(1, (width - 28) / widest)
+      : Math.min(1, width / layout.width, height / layout.height);
+
     setViewport({
       x: (width - layout.width * zoom) / 2,
       y: 24,
@@ -305,6 +314,8 @@ function Flow({ roadmap, statusOf, noteOf, selectedId, onSelect, onCycleStatus }
         nodesConnectable={false}
         panOnScroll
         zoomOnScroll={false}
+        zoomOnPinch
+        panOnDrag
         zoomOnDoubleClick={false}
         minZoom={0.15}
         maxZoom={1.8}
