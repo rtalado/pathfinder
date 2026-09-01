@@ -13,6 +13,16 @@ Je hoeft niets te programmeren. Je laat een AI het schrijven en plakt het result
 
 Je hebt nu de structuur: alle fasen en onderwerpen, met per onderwerp een korte samenvatting.
 
+## Of een heel traject
+
+Zet je bij stap 2 de knop **Een heel traject in drie delen** aan, dan krijg je drie
+opdrachten in plaats van één: begin, midden en eind. Elk deel wordt een eigen leerpad,
+zodat een AI aan elk deel de aandacht kan geven van een heel pad.
+
+Doe ze één voor één. De opdracht voor deel twee en drie krijgt de inhoudsopgave mee van
+wat er al staat, zodat de delen op elkaar aansluiten in plaats van elkaar half over te
+doen.
+
 ## En dan de uitleg
 
 De volledige uitleg past niet in één antwoord van een AI. Daarom haal je die er per fase bij: kies een fase, kopieer de opdracht, plak het antwoord terug. Je ziet in de balk hoeveel er al geschreven is.

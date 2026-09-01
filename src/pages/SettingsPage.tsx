@@ -19,6 +19,7 @@ import { RELEASE_SOURCE, useUpdate } from '@/store/updateStore';
 import { clearPulledContent, loadManifest, usingPulledContent } from '@/lib/content';
 import { useProgress } from '@/store/progressStore';
 import { readToken, useSettings } from '@/store/settingsStore';
+import { findTheme } from '@/lib/themes';
 import { ThemePicker } from '@/components/ThemePicker';
 
 const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new';
@@ -34,6 +35,9 @@ export function SettingsPage() {
   const setSync = useSettings((store) => store.setSync);
   const theme = useSettings((store) => store.theme);
   const setTheme = useSettings((store) => store.setTheme);
+  const resolvedTheme = useSettings((store) => store.resolvedTheme);
+  const crt = useSettings((store) => store.crt);
+  const setCrt = useSettings((store) => store.setCrt);
   const hasToken = useSettings((store) => store.hasToken);
   const saveToken = useSettings((store) => store.saveToken);
   const clearToken = useSettings((store) => store.clearToken);
@@ -57,6 +61,8 @@ export function SettingsPage() {
   const [copied, setCopied] = useState(false);
 
   const onServer = sync.backend === 'server';
+  // De beeldbuisknop heeft alleen zin bij een thema dat de app als terminal tekent.
+  const onTerminal = findTheme(resolvedTheme).terminal === true;
 
   useEffect(() => {
     loadManifest()
@@ -383,6 +389,24 @@ export function SettingsPage() {
               </p>
             </div>
             <ThemePicker value={theme} onChange={setTheme} />
+
+            {onTerminal && (
+              <label className="switch" style={{ alignItems: 'flex-start' }}>
+                <input
+                  type="checkbox"
+                  checked={crt}
+                  onChange={(event) => setCrt(event.target.checked)}
+                />
+                <span>
+                  <span style={{ fontWeight: 600 }}>Beeldbuis</span>
+                  <span className="field__hint" style={{ display: 'block' }}>
+                    De scanlijnen, de donkere rand en het lichte flakkeren van een oude monitor.
+                    Uit gezet blijft de rest van de terminalvorm staan en leest langere tekst
+                    rustiger.
+                  </span>
+                </span>
+              </label>
+            )}
           </section>
 
           {/* ---------- Bijwerken ---------- */}

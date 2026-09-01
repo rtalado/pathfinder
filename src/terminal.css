@@ -1,0 +1,818 @@
+/* ==========================================================================
+   Pathfinder - terminalskin
+
+   De terminalthema's ("terminal": true in shared/themes.json) doen meer dan een
+   groene letter op zwart. Alles hieronder haakt aan html[data-terminal='on'] en
+   geeft de app de vorm van een terminal: rechte hoeken, een promptregel in plaats
+   van een titel, blokjes en haakjes in plaats van pillen en schuifjes, en een
+   beeldbuislaag over het geheel.
+
+   Voor elk ander thema doet dit bestand niets; er is geen enkele regel die buiten
+   dat haakje valt.
+   ========================================================================== */
+
+html[data-terminal='on'] {
+  --radius: 0px;
+  --radius-lg: 0px;
+  /* De promptregel in de balk bovenaan; op een smal scherm korter. */
+  --term-prompt: 'pathfinder@local:~$ ';
+}
+
+/* Een terminal heeft geen ronde hoeken. Nergens, ook niet in een hoekje dat we
+   vergeten waren; vandaar deze botte regel in plaats van dertig losse. */
+html[data-terminal='on'] *,
+html[data-terminal='on'] *::before,
+html[data-terminal='on'] *::after {
+  border-radius: 0 !important;
+}
+
+html[data-terminal='on'] body {
+  font-family: var(--mono);
+  letter-spacing: 0.01em;
+  /* De gloed van fosfor op glas. */
+  text-shadow: 0 0 6px var(--term-glow);
+}
+
+html[data-terminal='on'] ::selection {
+  background: var(--accent);
+  color: var(--bg);
+  text-shadow: none;
+}
+
+@keyframes term-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes term-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  94% {
+    opacity: 0.86;
+  }
+  96% {
+    opacity: 1;
+  }
+}
+
+/* ---------- Beeldbuis ---------- */
+
+/*
+ * Scanlijnen en een donkere rand, als glas met een bocht erin. Het ligt over
+ * alles heen en vangt niets: pointer-events blijft uit. Wie er hoofdpijn van
+ * krijgt zet het uit bij instellingen; dan staat data-crt op 'off'.
+ */
+html[data-terminal='on'][data-crt='on'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.24) 0 1px, transparent 1px 3px),
+    radial-gradient(130% 100% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+  animation: term-flicker 7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-terminal='on'][data-crt='on'] body::after {
+    animation: none;
+  }
+}
+
+/* ---------- Het venster ---------- */
+
+html[data-terminal='on'] .app {
+  border: 1px solid var(--border-strong);
+}
+
+html[data-terminal='on'] .sidebar {
+  background: var(--bg);
+  border-right: 1px solid var(--border-strong);
+}
+
+html[data-terminal='on'] .sidebar__brand {
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+}
+
+html[data-terminal='on'] .sidebar__brand::after {
+  content: '_';
+  color: var(--accent);
+  animation: term-blink 1.1s step-end infinite;
+}
+
+html[data-terminal='on'] .sidebar__logo {
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+/* Een kopje met een streep die de rest van de regel volmaakt, zoals een kader
+   in een tekstscherm. */
+html[data-terminal='on'] .sidebar__section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+}
+
+html[data-terminal='on'] .sidebar__section::after {
+  content: '';
+  flex: 1;
+  border-top: 1px dashed var(--border-strong);
+}
+
+html[data-terminal='on'] .navitem {
+  margin: 0;
+  padding: 5px 12px;
+  font-weight: 500;
+  transition: none;
+}
+
+/* De regel waar je op staat krijgt een prompt; de rest houdt dezelfde inspringing. */
+html[data-terminal='on'] .navitem::before {
+  content: '  ';
+  white-space: pre;
+  color: var(--accent);
+  flex: none;
+}
+
+html[data-terminal='on'] .navitem:hover::before,
+html[data-terminal='on'] .navitem--active::before {
+  content: '> ';
+}
+
+html[data-terminal='on'] .navitem:hover {
+  background: var(--surface-2);
+}
+
+html[data-terminal='on'] .navitem--active {
+  background: var(--accent);
+  color: var(--bg);
+  text-shadow: none;
+}
+
+html[data-terminal='on'] .navitem--active::before {
+  color: var(--bg);
+}
+
+html[data-terminal='on'] .navitem__badge {
+  background: none;
+  color: var(--text-dim);
+  font-weight: 400;
+  padding: 0;
+}
+
+html[data-terminal='on'] .navitem__badge::before {
+  content: '[';
+}
+
+html[data-terminal='on'] .navitem__badge::after {
+  content: ']';
+}
+
+html[data-terminal='on'] .navitem--active .navitem__badge {
+  color: var(--bg);
+}
+
+/* ---------- De balk bovenaan als promptregel ---------- */
+
+html[data-terminal='on'] .topbar {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+html[data-terminal='on'] .topbar__title::before {
+  content: var(--term-prompt);
+  color: var(--accent);
+}
+
+html[data-terminal='on'] .topbar__title::after {
+  content: '\2588';
+  margin-left: 3px;
+  color: var(--accent);
+  animation: term-blink 1.05s step-end infinite;
+}
+
+html[data-terminal='on'] .topbar__sub::before {
+  content: '# ';
+  color: var(--text-dim);
+}
+
+/* ---------- Knoppen ---------- */
+
+html[data-terminal='on'] .btn {
+  gap: 6px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  font-weight: 500;
+  transition: none;
+}
+
+html[data-terminal='on'] .btn:not(.btn--ghost)::before {
+  content: '[';
+  color: inherit;
+  opacity: 0.7;
+}
+
+html[data-terminal='on'] .btn:not(.btn--ghost)::after {
+  content: ']';
+  color: inherit;
+  opacity: 0.7;
+}
+
+html[data-terminal='on'] .btn:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  text-shadow: none;
+}
+
+html[data-terminal='on'] .btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  text-shadow: none;
+}
+
+html[data-terminal='on'] .btn--primary:hover:not(:disabled) {
+  background: transparent;
+  color: var(--accent);
+}
+
+html[data-terminal='on'] .btn--ghost {
+  border-color: transparent;
+}
+
+html[data-terminal='on'] .btn--danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+html[data-terminal='on'] .btn--danger:hover:not(:disabled) {
+  background: var(--danger);
+  color: var(--bg);
+}
+
+/* Bezig zijn is een knipperende cursor, geen draaiend wieltje. */
+html[data-terminal='on'] .spinner {
+  width: 8px;
+  height: 14px;
+  border: none;
+  background: currentColor;
+  animation: term-blink 0.6s step-end infinite;
+}
+
+html[data-terminal='on'] .updatebadge {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+}
+
+html[data-terminal='on'] .updatebadge--ready {
+  border-color: var(--status-done);
+  color: var(--status-done);
+}
+
+/* ---------- Kaders en kopjes ---------- */
+
+html[data-terminal='on'] .card,
+html[data-terminal='on'] .stat,
+html[data-terminal='on'] .roadmapcard,
+html[data-terminal='on'] .docrow,
+html[data-terminal='on'] .flashcard,
+html[data-terminal='on'] .resource,
+html[data-terminal='on'] .track__part {
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+
+html[data-terminal='on'] .card h2,
+html[data-terminal='on'] .card > .stack > div > h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.04em;
+}
+
+html[data-terminal='on'] .card h2::before {
+  content: '\258C';
+  color: var(--accent);
+}
+
+html[data-terminal='on'] .card h2::after {
+  content: '';
+  flex: 1;
+  border-top: 1px dashed var(--border);
+}
+
+html[data-terminal='on'] .roadmapcard:hover {
+  transform: none;
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+html[data-terminal='on'] .roadmapcard__icon {
+  border: 1px solid var(--border-strong);
+}
+
+html[data-terminal='on'] .stat__value {
+  color: var(--accent);
+  letter-spacing: 0;
+}
+
+html[data-terminal='on'] .stat__label,
+html[data-terminal='on'] .field__label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+html[data-terminal='on'] .tag,
+html[data-terminal='on'] .kindpill {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  text-transform: none;
+}
+
+/* ---------- Invulvelden ---------- */
+
+html[data-terminal='on'] .input,
+html[data-terminal='on'] .textarea,
+html[data-terminal='on'] .select {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  font-family: var(--mono);
+  caret-color: var(--accent);
+}
+
+html[data-terminal='on'] .input:focus,
+html[data-terminal='on'] .textarea:focus,
+html[data-terminal='on'] .select:focus {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+html[data-terminal='on'] .input::placeholder,
+html[data-terminal='on'] .textarea::placeholder {
+  color: var(--text-dim);
+}
+
+/* Een schuifje bestaat niet in een terminal; een aankruisvakje wel. */
+html[data-terminal='on'] .switch input {
+  width: 20px;
+  height: 18px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  transition: none;
+}
+
+html[data-terminal='on'] .switch input:checked {
+  background: transparent;
+  border-color: var(--accent);
+}
+
+html[data-terminal='on'] .switch input::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  display: grid;
+  place-items: center;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  transform: none;
+  transition: none;
+}
+
+html[data-terminal='on'] .switch input:checked::after {
+  content: 'x';
+  transform: none;
+  background: none;
+}
+
+/* ---------- Voortgang als blokjesbalk ---------- */
+
+html[data-terminal='on'] .progress {
+  height: 12px;
+  padding: 0;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+}
+
+/*
+ * De kleur van de balk komt als inline-stijl van het leerpad mee, dus die laten
+ * we staan en knippen hem alleen in blokjes. Zo staat er [####    ] in plaats van
+ * een vloeiende streep.
+ */
+html[data-terminal='on'] .progress__bar {
+  -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 5px, transparent 5px 7px);
+  mask-image: repeating-linear-gradient(90deg, #000 0 5px, transparent 5px 7px);
+  transition: none;
+}
+
+html[data-terminal='on'] .heatmap__day {
+  border: 1px solid var(--border);
+}
+
+/* ---------- Status ---------- */
+
+/* Een vakje met een teken erin, zoals in een lijstje op papier. */
+html[data-terminal='on'] .statusbox {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  transition: none;
+}
+
+html[data-terminal='on'] .statusbox svg {
+  display: none;
+}
+
+html[data-terminal='on'] .statusbox--done {
+  background: transparent;
+  border-color: var(--status-done);
+  color: var(--status-done);
+}
+
+html[data-terminal='on'] .statusbox--done::before {
+  content: 'x';
+}
+
+html[data-terminal='on'] .statusbox--doing {
+  background: transparent;
+}
+
+html[data-terminal='on'] .statusbox--doing::before {
+  content: '>';
+}
+
+html[data-terminal='on'] .statusbox--skipped::before {
+  content: '-';
+}
+
+html[data-terminal='on'] .statuschip {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+}
+
+html[data-terminal='on'] .statuschip--active[data-status='done'] {
+  background: var(--status-done);
+  color: var(--bg);
+  text-shadow: none;
+}
+
+html[data-terminal='on'] .statuschip--active[data-status='doing'] {
+  background: var(--status-doing);
+  color: var(--bg);
+  text-shadow: none;
+}
+
+html[data-terminal='on'] .statuschip--active[data-status='todo'] {
+  background: var(--accent);
+  color: var(--bg);
+  text-shadow: none;
+}
+
+html[data-terminal='on'] .statuschip--active[data-status='skipped'] {
+  background: var(--status-skipped);
+  color: var(--bg);
+  text-shadow: none;
+}
+
+/* ---------- Lijstweergave en traject ---------- */
+
+html[data-terminal='on'] .outline__row {
+  border: 1px solid transparent;
+}
+
+html[data-terminal='on'] .outline__row--milestone {
+  border-color: var(--border-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+html[data-terminal='on'] .outline__row--selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  text-shadow: none;
+}
+
+html[data-terminal='on'] .outline__row--selected .outline__count,
+html[data-terminal='on'] .outline__row--selected .outline__title {
+  color: var(--bg);
+}
+
+html[data-terminal='on'] .track__num {
+  border: 1px solid var(--border-strong);
+}
+
+html[data-terminal='on'] .track__part--active {
+  border-color: var(--accent);
+}
+
+/* ---------- Plattegrond ---------- */
+
+html[data-terminal='on'] .rnode {
+  border-width: 1px;
+  transition: none;
+}
+
+html[data-terminal='on'] .rnode:hover {
+  transform: none;
+  filter: none;
+  outline: 1px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+html[data-terminal='on'] .rnode--milestone {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Rechte lijnen, geen ronde uiteinden: dit is een schema in tekens. */
+html[data-terminal='on'] .graph svg path {
+  stroke-linecap: butt;
+}
+
+html[data-terminal='on'] .graph__toolbar,
+html[data-terminal='on'] .graph__legend {
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+
+html[data-terminal='on'] .react-flow__controls-button {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  fill: currentColor;
+}
+
+/* ---------- Zijpaneel ---------- */
+
+html[data-terminal='on'] .panel {
+  border-left: 1px solid var(--accent);
+  box-shadow: none;
+  animation: none;
+}
+
+html[data-terminal='on'] .panel__scrim {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+html[data-terminal='on'] .panel__head {
+  border-bottom: 1px solid var(--border-strong);
+}
+
+html[data-terminal='on'] .panel__title::before {
+  content: '# ';
+  color: var(--accent);
+}
+
+html[data-terminal='on'] .panel__tabs {
+  border-bottom: 1px solid var(--border-strong);
+  padding: 0;
+}
+
+html[data-terminal='on'] .tab {
+  border-bottom: none;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12px;
+}
+
+html[data-terminal='on'] .tab--active {
+  background: var(--accent);
+  color: var(--bg);
+  text-shadow: none;
+}
+
+/* ---------- Meldingen ---------- */
+
+html[data-terminal='on'] .banner {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+}
+
+html[data-terminal='on'] .banner > svg {
+  display: none;
+}
+
+html[data-terminal='on'] .banner::before {
+  content: '::';
+  flex: none;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+html[data-terminal='on'] .banner--ok {
+  border-color: var(--status-done);
+}
+
+html[data-terminal='on'] .banner--ok::before {
+  content: 'ok';
+  color: var(--status-done);
+}
+
+html[data-terminal='on'] .banner--warn {
+  border-color: var(--status-doing);
+}
+
+html[data-terminal='on'] .banner--warn::before {
+  content: '!!';
+  color: var(--status-doing);
+}
+
+html[data-terminal='on'] .banner--error {
+  border-color: var(--danger);
+}
+
+html[data-terminal='on'] .banner--error::before {
+  content: 'err';
+  color: var(--danger);
+}
+
+html[data-terminal='on'] .empty::before {
+  content: '-- leeg --';
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-dim);
+}
+
+/* ---------- Overhoren ---------- */
+
+html[data-terminal='on'] .flashcard__question::before {
+  content: '? ';
+  color: var(--accent);
+}
+
+html[data-terminal='on'] .flashcard__answer {
+  border-top: 1px dashed var(--border-strong);
+}
+
+html[data-terminal='on'] .flashcard__answer::before {
+  content: '> ';
+  color: var(--accent);
+}
+
+/* ---------- Lesstof ---------- */
+
+/* Markdown mag zijn eigen tekens laten zien; zo leest het als het bestand zelf. */
+html[data-terminal='on'] .md h1::before {
+  content: '# ';
+  color: var(--text-dim);
+}
+
+html[data-terminal='on'] .md h2::before {
+  content: '## ';
+  color: var(--text-dim);
+}
+
+html[data-terminal='on'] .md h3::before {
+  content: '### ';
+  color: var(--text-dim);
+}
+
+html[data-terminal='on'] .md h4::before {
+  content: '#### ';
+  color: var(--text-dim);
+}
+
+html[data-terminal='on'] .md h2 {
+  border-bottom: 1px dashed var(--border);
+}
+
+html[data-terminal='on'] .md ul {
+  list-style: none;
+  padding-left: 1.4em;
+}
+
+html[data-terminal='on'] .md ul > li {
+  position: relative;
+}
+
+html[data-terminal='on'] .md ul > li::before {
+  content: '-';
+  position: absolute;
+  left: -1.1em;
+  color: var(--accent);
+}
+
+html[data-terminal='on'] .md ol > li::marker {
+  color: var(--accent);
+}
+
+html[data-terminal='on'] .md code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--accent-soft);
+}
+
+html[data-terminal='on'] .md code::before,
+html[data-terminal='on'] .md code::after {
+  content: '`';
+  opacity: 0.5;
+}
+
+html[data-terminal='on'] .md pre {
+  background: var(--bg);
+  border: 1px dashed var(--border-strong);
+}
+
+html[data-terminal='on'] .md pre code::before,
+html[data-terminal='on'] .md pre code::after {
+  content: none;
+}
+
+html[data-terminal='on'] .md blockquote {
+  border-left: 1px solid var(--accent);
+}
+
+html[data-terminal='on'] .md hr {
+  border-top: 1px dashed var(--border-strong);
+}
+
+html[data-terminal='on'] .md th {
+  background: transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.92em;
+}
+
+html[data-terminal='on'] .md tr:nth-child(even) td {
+  background: transparent;
+}
+
+html[data-terminal='on'] .md a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* ---------- Randen van het scherm ---------- */
+
+html[data-terminal='on'] ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+html[data-terminal='on'] ::-webkit-scrollbar-track {
+  background: var(--bg-soft);
+  border-left: 1px solid var(--border);
+}
+
+html[data-terminal='on'] ::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid var(--bg-soft);
+}
+
+html[data-terminal='on'] .themecard--active {
+  box-shadow: none;
+  outline: 1px solid var(--accent);
+}
+
+/* ---------- Mobiel ---------- */
+
+@media (max-width: 860px) {
+  html[data-terminal='on'] {
+    --term-prompt: '~$ ';
+  }
+
+  html[data-terminal='on'] .app {
+    border: none;
+  }
+
+  html[data-terminal='on'] .mobilenav {
+    background: var(--bg);
+    border-top: 1px solid var(--border-strong);
+  }
+
+  html[data-terminal='on'] .mobilenav__item--active {
+    background: var(--accent);
+    color: var(--bg);
+    text-shadow: none;
+  }
+}

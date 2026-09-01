@@ -353,6 +353,11 @@ export interface PromptOptions {
   level: 'beginner' | 'gevorderd' | 'expert';
   language: 'nl' | 'en';
   depth: 'compact' | 'normaal' | 'uitgebreid';
+  /**
+   * Eén leerpad, of een traject: drie leerpaden achter elkaar, van beginner tot
+   * expert. Zie TRACK_LEVELS hieronder waarom dat drie opdrachten oplevert.
+   */
+  track?: boolean;
 }
 
 const LEVEL_TEXT: Record<PromptOptions['level'], string> = {
@@ -366,6 +371,150 @@ const DEPTH_TEXT: Record<PromptOptions['depth'], { milestones: string; topics: s
   normaal: { milestones: '7 tot 9', topics: '4 tot 7' },
   uitgebreid: { milestones: '9 tot 12', topics: '5 tot 8' },
 };
+
+/**
+ * Een traject is één onderwerp, verdeeld over drie leerpaden die je na elkaar
+ * loopt. Dat is meer dan een niveaukeuze: door er drie opdrachten van te maken
+ * krijgt elk deel de aandacht van een heel leerpad, in plaats van dertig fasen in
+ * één antwoord. De delen sluiten op elkaar aan doordat de opdracht voor deel twee
+ * en drie de inhoudsopgave van de eerdere delen meekrijgt.
+ */
+export const TRACK_LEVELS: {
+  label: string;
+  level: PromptOptions['level'];
+  scope: string;
+}[] = [
+  {
+    label: 'Begin',
+    level: 'beginner',
+    scope:
+      'van niets naar de basis: de begrippen, het gereedschap opzetten, en de eerste keren zelf doen',
+  },
+  {
+    label: 'Midden',
+    level: 'gevorderd',
+    scope:
+      'van de basis naar zelfstandig werk van goede kwaliteit: de gangbare werkwijzen, de valkuilen, en het echte werk',
+  },
+  {
+    label: 'Eind',
+    level: 'expert',
+    scope:
+      'van goed naar diep: randgevallen, de afwegingen achter de keuzes, en het werk waar weinig mensen aan toekomen',
+  },
+];
+
+export interface TrackPart {
+  /** 1, 2 of 3. */
+  index: number;
+  total: number;
+  /** De id die het leerpad van dit deel moet krijgen; daar herkent de app het aan. */
+  id: string;
+  label: string;
+  level: PromptOptions['level'];
+  scope: string;
+}
+
+/** Waar dit deel in de lijst van het overzicht komt te staan. */
+export function trackOrder(part: TrackPart): number {
+  return 50 + part.index;
+}
+
+/** De drie delen van een traject over dit onderwerp, met vaste ids. */
+export function trackParts(options: PromptOptions): TrackPart[] {
+  // Ruim onder de 60 tekens die slug() overhoudt, zodat het achtervoegsel er altijd
+  // ongeschonden bij past; anders herkent de app het deel straks niet terug.
+  const base = slug(options.topic).slice(0, 40).replace(/-+$/, '') || 'traject';
+  return TRACK_LEVELS.map((entry, index) => ({
+    index: index + 1,
+    total: TRACK_LEVELS.length,
+    id: `${base}-${index + 1}-${entry.label.toLowerCase()}`,
+    label: entry.label,
+    level: entry.level,
+    scope: entry.scope,
+  }));
+}
+
+export interface TrackContext {
+  part: TrackPart;
+  parts: TrackPart[];
+  /** De delen die al binnen zijn; hierop moet dit deel aansluiten. */
+  earlier: { part: TrackPart; roadmap: Roadmap }[];
+}
+
+/** Inhoudsopgave van een deel: fasen met de onderwerpen die eronder hangen. */
+function roadmapOutline(roadmap: Roadmap): string {
+  return roadmap.nodes
+    .filter((node) => node.kind === 'milestone')
+    .map((milestone) => {
+      const kids = roadmap.nodes
+        .filter((node) => node.parent === milestone.id && node.kind !== 'label')
+        .map((node) => node.title);
+      return `    ${milestone.title}${kids.length ? `: ${kids.join(', ')}` : ''}`;
+    })
+    .join('\n');
+}
+
+/** Het blok dat een deel zijn plaats in het traject geeft. */
+function trackBlock(topic: string, track: TrackContext): string {
+  const { part, parts, earlier } = track;
+  const next = parts[part.index];
+
+  const overview = parts
+    .map(
+      (entry) =>
+        `  ${entry.index === part.index ? '>' : ' '} deel ${entry.index} — ${entry.label}: ${entry.scope}`
+    )
+    .join('\n');
+
+  const known = earlier.length
+    ? `WAT DE VORIGE DELEN AL BEHANDELEN
+
+${earlier
+  .map(
+    (entry) =>
+      `  deel ${entry.part.index} — "${entry.roadmap.title}"\n${roadmapOutline(entry.roadmap)}`
+  )
+  .join('\n\n')}
+
+Dit is de werkelijke inhoud van die delen, geen schatting.`
+    : `De vorige delen zijn nog niet geschreven. Ga uit van de verdeling hierboven en
+neem aan dat alles wat daar hoort al behandeld is.`;
+
+  const bridge = [
+    part.index === 1
+      ? '- Begin bij nul: geen voorkennis, geen aannames over eerder werk.'
+      : `- Ga ervan uit dat alles uit de vorige delen bekend is. Herhaal het niet en leg het
+  niet opnieuw uit; verwijs er hooguit in een halve zin naar ("je kent X al uit deel 1").`,
+    part.index === 1
+      ? null
+      : `- Laat de eerste fase van dit deel direct aansluiten op waar deel ${part.index - 1} ophoudt. Zeg in de
+  "summary" van die fase wat iemand moet kunnen om hier te beginnen.`,
+    next
+      ? `- Eindig dit deel op een punt waar deel ${next.index} (${next.scope}) logisch verder kan.
+  Wat daar hoort, laat je hier weg.`
+      : '- Dit is het laatste deel. Sluit af met waar iemand daarna zelfstandig verder kan.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return `TRAJECT
+
+Dit is deel ${part.index} van ${part.total} van één doorlopend traject over ${topic}. Het zijn drie
+losse leerpaden die na elkaar gelopen worden:
+
+${overview}
+
+Je schrijft nu alleen deel ${part.index}. Wat in een ander deel hoort laat je weg, ook als het
+verleidelijk is om het even aan te stippen; anders staat het straks twee keer in het traject.
+
+${known}
+
+AANSLUITEN
+
+${bridge}
+`;
+}
 
 function languageLine(language: 'nl' | 'en'): string {
   return language === 'nl'
@@ -401,28 +550,51 @@ article, video, book, course, standard, tool, podcast, practice.`;
 /**
  * Stap 1: de structuur. Bewust zonder de volledige uitleg, want die past niet in
  * een antwoord. De uitleg volgt per fase of per onderwerp met de tweede prompt.
+ *
+ * Met een traject-context maakt dit de opdracht voor één deel van drie, dat op de
+ * eerdere delen aansluit; zonder die context het gewone losse leerpad.
  */
-export function buildStructurePrompt(options: PromptOptions): string {
-  const { topic, level, language, depth } = options;
+export function buildStructurePrompt(options: PromptOptions, track?: TrackContext): string {
+  const { topic, language, depth } = options;
   const counts = DEPTH_TEXT[depth];
+  const level = track ? track.part.level : options.level;
+
+  // Het onderwerp komt straks in een JSON-voorbeeld terecht; aanhalingstekens
+  // zouden dat voorbeeld openbreken.
+  const plainTopic = topic.replace(/["\\]/g, '').trim();
+
+  const subject = track
+    ? `${topic} — deel ${track.part.index} van ${track.part.total}: ${track.part.label}`
+    : topic;
+  const idLine = track ? `"id": "${track.part.id}",` : '"id": "korte-kebab-case-naam",';
+  const titleLine = track
+    ? `"title": "${plainTopic} — deel ${track.part.index}: ${track.part.label}",`
+    : '"title": "Naam van het leerpad",';
+  const orderLine = track ? `\n  "order": ${trackOrder(track.part)},` : '';
+
+  const trackRules = track
+    ? `\n12. Gebruik exact deze "id": "${track.part.id}" en exact deze "order": ${trackOrder(track.part)}. Daar herkent de app dit deel aan; verzin er geen eigen id bij.
+13. Laat de titel beginnen met het onderwerp en het deelnummer, zoals in het voorbeeld hierboven.
+14. Blijf binnen de omvang van dit deel: ${counts.milestones} fasen. Dat het traject uit drie delen bestaat is geen reden om er hier meer bij te doen.`
+    : '';
 
   return `Je maakt een leerpad voor de app Pathfinder. Antwoord met UITSLUITEND een JSON-object in een codeblok. Geen inleiding, geen uitleg eromheen.
 
-ONDERWERP: ${topic}
+ONDERWERP: ${subject}
 BEDOELD VOOR: ${LEVEL_TEXT[level]}
 TAAL: ${languageLine(language)}
 
-Lever dit JSON-formaat:
+${track ? `${trackBlock(topic, track)}\n` : ''}Lever dit JSON-formaat:
 
 \`\`\`json
 {
-  "id": "korte-kebab-case-naam",
-  "title": "Naam van het leerpad",
+  ${idLine}
+  ${titleLine}
   "subtitle": "Een regel die zegt waar het pad heen gaat",
   "description": "Twee tot drie zinnen over de opzet en voor wie het is.",
   "icon": "graduation-cap",
   "color": "#38bdf8",
-  "version": 1,
+  "version": 1,${orderLine}
   "estimatedHours": 60,
   "nodes": [
     {
@@ -476,7 +648,7 @@ REGELS
 8. Zet "optional": true bij onderwerpen die nuttig maar niet noodzakelijk zijn.
 9. Voeg 0 tot 2 "flashcards" toe bij onderwerpen waar feitenkennis telt. Vraag naar begrip, niet naar definities uit het hoofd.
 10. Kies "icon" uit precies deze lijst: ${ICON_NAMES.join(', ')}.
-11. Geen "content"-veld in dit antwoord. De uitleg volgt in een tweede stap.
+11. Geen "content"-veld in dit antwoord. De uitleg volgt in een tweede stap.${trackRules}
 
 ${RESOURCE_RULES}
 

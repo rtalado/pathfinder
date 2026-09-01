@@ -183,6 +183,9 @@ function Flow({ roadmap, statusOf, noteOf, selectedId, onSelect, onCycleStatus }
   // De terminalthema's draaien om een enkele kleur; daar hoort een paarse fase
   // niet in thuis, dus mag het thema de basiskleur overnemen.
   const themeBase = useSettings((store) => findTheme(store.resolvedTheme).colors.graphBase);
+  // In een terminalthema is de achtergrond een raster van kruisjes in plaats van
+  // stippen; dat leest als een tekenscherm in plaats van als een tekenvel.
+  const terminal = useSettings((store) => findTheme(store.resolvedTheme).terminal === true);
 
   const hues = useMemo(() => {
     const count = roadmap.nodes.filter((node) => node.kind === 'milestone').length || 1;
@@ -328,7 +331,12 @@ function Flow({ roadmap, statusOf, noteOf, selectedId, onSelect, onCycleStatus }
         maxZoom={1.8}
         proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--border)" />
+        <Background
+          variant={terminal ? BackgroundVariant.Cross : BackgroundVariant.Dots}
+          gap={terminal ? 20 : 22}
+          size={terminal ? 4 : 1}
+          color="var(--border)"
+        />
         <Controls showInteractive={false} position="bottom-right" />
         <Connections layout={layout} hues={hues} />
       </ReactFlow>

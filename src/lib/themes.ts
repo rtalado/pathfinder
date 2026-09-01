@@ -50,6 +50,11 @@ export interface Theme {
   dark: boolean;
   /** Alles in een schrijfmachineletter; hoort bij de terminalthema's. */
   mono: boolean;
+  /**
+   * Meer dan kleur en letter: de hele app krijgt de vorm van een terminal, met
+   * rechte hoeken, een promptregel, blokcursors en scanlijnen. Zie terminal.css.
+   */
+  terminal?: boolean;
   colors: ThemeColors;
 }
 
@@ -120,6 +125,9 @@ export function themeVariables(theme: Theme): Record<string, string> {
     '--shadow-hard': `3px 3px 0 rgb(${c.shadowRgb} / ${theme.dark ? 0.55 : 0.22})`,
     '--shadow-soft': `0 8px 24px rgb(${c.shadowRgb} / ${theme.dark ? 0.4 : 0.12})`,
     '--font': theme.mono ? MONO_STACK : SANS_STACK,
+    // De fosforgloed van een terminalthema; buiten die thema's wordt hij niet gebruikt.
+    '--term-glow': alpha(c.accent, 0.28),
+    '--term-line': alpha(c.accent, 0.12),
   };
 }
 
@@ -132,5 +140,8 @@ export function applyTheme(theme: Theme): void {
   root.dataset.theme = theme.id;
   // Losse haak voor de paar regels die alleen om licht of donker geven.
   root.dataset.mode = theme.dark ? 'dark' : 'light';
+  // De hele terminalvorm hangt aan dit ene haakje; zie terminal.css.
+  if (theme.terminal) root.dataset.terminal = 'on';
+  else delete root.dataset.terminal;
   root.style.colorScheme = theme.dark ? 'dark' : 'light';
 }

@@ -38,6 +38,8 @@ function readStoredTheme(): ThemeChoice {
 interface SettingsState {
   sync: SyncSettings;
   theme: ThemeChoice;
+  /** De scanlijnen en het flakkeren van de terminalthema's. */
+  crt: boolean;
   /** Het thema dat er nu op staat; bij 'system' is dat licht of donker. */
   resolvedTheme: string;
   viewMode: ViewMode;
@@ -48,6 +50,7 @@ interface SettingsState {
   init(): Promise<void>;
   setSync(patch: Partial<SyncSettings>): void;
   setTheme(theme: ThemeChoice): void;
+  setCrt(on: boolean): void;
   setResolvedTheme(id: string): void;
   setViewMode(mode: ViewMode): void;
   saveToken(token: string): Promise<void>;
@@ -58,6 +61,7 @@ interface SettingsState {
 export const useSettings = create<SettingsState>((set, get) => ({
   sync: { ...DEFAULT_SYNC, ...readSetting<Partial<SyncSettings>>('sync', {}) },
   theme: readStoredTheme(),
+  crt: readSetting<boolean>('crt', true),
   resolvedTheme: DEFAULT_THEME_ID,
   // Op een smal scherm is de lijst standaard bruikbaarder dan de graph.
   viewMode: readSetting<ViewMode>('viewMode', window.innerWidth < 820 ? 'list' : 'graph'),
@@ -80,6 +84,11 @@ export const useSettings = create<SettingsState>((set, get) => ({
   setTheme(theme) {
     writeSetting('theme', theme);
     set({ theme });
+  },
+
+  setCrt(crt) {
+    writeSetting('crt', crt);
+    set({ crt });
   },
 
   // Alleen voor deze sessie; wat er bewaard wordt is je keuze, niet de uitkomst.

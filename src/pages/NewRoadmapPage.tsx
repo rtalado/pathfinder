@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  Check,
   ClipboardCopy,
   Download,
   ExternalLink,
@@ -20,7 +21,10 @@ import {
   buildStructurePrompt,
   parseImport,
   serializeRoadmap,
+  trackOrder,
+  trackParts,
   type PromptOptions,
+  type TrackPart,
 } from '@/lib/roadmapImport';
 import { useProgress } from '@/store/progressStore';
 
@@ -30,12 +34,23 @@ const AI_SITES = [
   { name: 'Gemini', url: 'https://gemini.google.com/app' },
 ];
 
-function CopyButton({ text, label = 'Prompt kopiëren' }: { text: string; label?: string }) {
+function CopyButton({
+  text,
+  label = 'Prompt kopiëren',
+  primary = true,
+  small = false,
+}: {
+  text: string;
+  label?: string;
+  /** Een opdracht die nog niet aan de beurt is hoeft de aandacht niet te trekken. */
+  primary?: boolean;
+  small?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <button
       type="button"
-      className="btn btn--primary"
+      className={`btn${primary ? ' btn--primary' : ''}${small ? ' btn--sm' : ''}`}
       onClick={() => {
         void navigator.clipboard
           .writeText(text)
@@ -51,16 +66,24 @@ function CopyButton({ text, label = 'Prompt kopiëren' }: { text: string; label?
   );
 }
 
+const LEVEL_NAMES: Record<PromptOptions['level'], string> = {
+  beginner: 'Beginner',
+  gevorderd: 'Gevorderd',
+  expert: 'Expert',
+};
+
 /** Stap 1 en 2: een nieuw leerpad laten schrijven en binnenhalen. */
 function CreateSection() {
   const navigate = useNavigate();
   const saveRoadmap = useProgress((store) => store.saveRoadmap);
+  const library = useProgress((store) => store.library);
 
   const [options, setOptions] = useState<PromptOptions>({
     topic: '',
     level: 'beginner',
     language: 'nl',
     depth: 'normaal',
+    track: false,
   });
   const [pasted, setPasted] = useState('');
   const [busy, setBusy] = useState(false);
@@ -69,10 +92,39 @@ function CreateSection() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [created, setCreated] = useState<Roadmap | null>(null);
 
+  const topic = options.topic.trim();
+
   const prompt = useMemo(
-    () => (options.topic.trim() ? buildStructurePrompt(options) : ''),
-    [options]
+    () => (topic && !options.track ? buildStructurePrompt(options) : ''),
+    [options, topic]
   );
+
+  // De drie delen van een traject hebben een vaste id. Daardoor kan de app in je
+  // eigen verzameling opzoeken welke delen er al staan, ook als je de app er
+  // tussendoor bij hebt dichtgedaan.
+  const parts = useMemo(
+    () => (topic && options.track ? trackParts(options) : []),
+    [options, topic]
+  );
+  const made = parts.map((part) => findRoadmap(library, part.id));
+  const missing = made.findIndex((roadmap) => !roadmap);
+  const activeIndex = missing === -1 ? parts.length - 1 : missing;
+
+  /**
+   * De opdracht voor één deel. Delen die al binnen zijn gaan als inhoudsopgave mee,
+   * zodat het volgende deel begint waar het vorige ophoudt in plaats van de helft
+   * over te doen.
+   */
+  function promptForPart(index: number): string {
+    return buildStructurePrompt(options, {
+      part: parts[index],
+      parts,
+      earlier: parts
+        .slice(0, index)
+        .map((part, position) => ({ part, roadmap: made[position] }))
+        .filter((entry): entry is { part: TrackPart; roadmap: Roadmap } => Boolean(entry.roadmap)),
+    });
+  }
 
   async function handleImport() {
     setBusy(true);
@@ -86,10 +138,20 @@ function CreateSection() {
         setHint('Gebruik het vak onder "Uitleg aanvullen" bij het betreffende leerpad.');
         return;
       }
-      await saveRoadmap(result.roadmap);
+
+      // In een traject hangt alles aan die vaste id: daaraan ziet de app welk deel
+      // al staat en waarop het volgende deel moet aansluiten. Gaf de AI het een
+      // eigen naam, dan zetten we dat hier recht.
+      let roadmap = result.roadmap;
+      if (parts.length) {
+        const part = parts.find((entry) => entry.id === roadmap.id) ?? parts[activeIndex];
+        roadmap = { ...roadmap, id: part.id, order: trackOrder(part) };
+      }
+
+      await saveRoadmap(roadmap);
       setPasted('');
       setWarnings(result.warnings);
-      setCreated(result.roadmap);
+      setCreated(roadmap);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Toevoegen mislukt.');
       if (cause && typeof cause === 'object' && 'hint' in cause) {
@@ -99,6 +161,8 @@ function CreateSection() {
       setBusy(false);
     }
   }
+
+  const createdPart = created ? parts.find((part) => part.id === created.id) : undefined;
 
   return (
     <>
@@ -125,20 +189,27 @@ function CreateSection() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
           <div className="field" style={{ margin: 0 }}>
             <span className="field__label">Niveau</span>
-            <select
-              className="select"
-              value={options.level}
-              onChange={(event) =>
-                setOptions({ ...options, level: event.target.value as PromptOptions['level'] })
-              }
-            >
-              <option value="beginner">Beginner</option>
-              <option value="gevorderd">Gevorderd</option>
-              <option value="expert">Expert</option>
-            </select>
+            {options.track ? (
+              // In een traject ligt het niveau vast: elk deel heeft zijn eigen.
+              <div className="field__hint" style={{ paddingTop: 9 }}>
+                Alle drie, één per deel
+              </div>
+            ) : (
+              <select
+                className="select"
+                value={options.level}
+                onChange={(event) =>
+                  setOptions({ ...options, level: event.target.value as PromptOptions['level'] })
+                }
+              >
+                <option value="beginner">Beginner</option>
+                <option value="gevorderd">Gevorderd</option>
+                <option value="expert">Expert</option>
+              </select>
+            )}
           </div>
           <div className="field" style={{ margin: 0 }}>
-            <span className="field__label">Omvang</span>
+            <span className="field__label">Omvang{options.track ? ' per deel' : ''}</span>
             <select
               className="select"
               value={options.depth}
@@ -169,6 +240,23 @@ function CreateSection() {
           </div>
         </div>
 
+        <label className="switch" style={{ alignItems: 'flex-start' }}>
+          <input
+            type="checkbox"
+            checked={Boolean(options.track)}
+            onChange={(event) => setOptions({ ...options, track: event.target.checked })}
+          />
+          <span>
+            <span style={{ fontWeight: 600 }}>Een heel traject in drie delen</span>
+            <span className="field__hint" style={{ display: 'block' }}>
+              Begin, midden en eind als drie losse leerpaden die op elkaar aansluiten. Je krijgt
+              drie opdrachten, één per deel, zodat een AI aan elk deel de aandacht van een heel
+              leerpad kan geven. Deel twee en drie krijgen de inhoud van de vorige delen mee, zodat
+              er niets dubbel komt te staan.
+            </span>
+          </span>
+        </label>
+
         {prompt && (
           <>
             <div className="row" style={{ flexWrap: 'wrap' }}>
@@ -197,6 +285,85 @@ function CreateSection() {
             </details>
           </>
         )}
+
+        {parts.length > 0 && (
+          <div className="track">
+            {parts.map((part, index) => {
+              const roadmap = made[index];
+              const active = !roadmap && index === activeIndex;
+              const classes = [
+                'track__part',
+                active ? 'track__part--active' : '',
+                roadmap ? 'track__part--done' : '',
+              ]
+                .filter(Boolean)
+                .join(' ');
+
+              return (
+                <div key={part.id} className={classes}>
+                  <div className="track__head">
+                    <span className="track__num">
+                      {roadmap ? <Check size={13} strokeWidth={3} /> : part.index}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="track__title">
+                        Deel {part.index} — {part.label}
+                      </div>
+                      <div className="track__scope">
+                        {LEVEL_NAMES[part.level]}: {part.scope}
+                      </div>
+                    </div>
+                    {roadmap ? (
+                      <Link to={`/pad/${roadmap.id}`} className="btn btn--sm">
+                        Bekijken
+                      </Link>
+                    ) : (
+                      <CopyButton
+                        text={promptForPart(index)}
+                        label={active ? 'Opdracht kopiëren' : 'Vast kopiëren'}
+                        primary={active}
+                        small
+                      />
+                    )}
+                  </div>
+
+                  {active && (
+                    <>
+                      <div className="row" style={{ flexWrap: 'wrap' }}>
+                        {AI_SITES.map((site) => (
+                          <button
+                            key={site.name}
+                            type="button"
+                            className="btn btn--sm"
+                            onClick={() => openExternal(site.url)}
+                          >
+                            {site.name} <ExternalLink size={12} />
+                          </button>
+                        ))}
+                      </div>
+                      <details>
+                        <summary className="muted" style={{ cursor: 'pointer', fontSize: 13 }}>
+                          De opdracht bekijken
+                        </summary>
+                        <textarea
+                          className="textarea"
+                          readOnly
+                          value={promptForPart(index)}
+                          style={{ marginTop: 10, minHeight: 220, fontSize: 12 }}
+                        />
+                      </details>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+            <p className="field__hint" style={{ margin: 0 }}>
+              Doe ze één voor één: plak het antwoord hieronder, dan weet de opdracht voor het
+              volgende deel wat er al staat. Alles in één keer bij een AI neerleggen kan ook, maar
+              dan sluiten de delen minder strak op elkaar aan.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="card stack">
@@ -205,6 +372,7 @@ function CreateSection() {
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>
             Kopieer het volledige antwoord van de AI en plak het hier. Tekst eromheen is geen
             probleem; het JSON-blok wordt er zelf uitgehaald.
+            {parts.length > 0 && ' Bij een traject plak je hier elk deel apart.'}
           </p>
         </div>
 
@@ -222,7 +390,8 @@ function CreateSection() {
             disabled={!pasted.trim() || busy}
             onClick={() => void handleImport()}
           >
-            {busy ? <span className="spinner" /> : <Plus size={14} />} Leerpad toevoegen
+            {busy ? <span className="spinner" /> : <Plus size={14} />}{' '}
+            {parts.length > 0 ? `Deel ${parts[activeIndex].index} toevoegen` : 'Leerpad toevoegen'}
           </button>
         </div>
 
@@ -256,6 +425,10 @@ function CreateSection() {
             <span>
               <strong>{created.title}</strong> toegevoegd: {created.nodes.length} onderwerpen. De
               structuur staat er; de uitleg per onderwerp haal je in de volgende stap op.
+              {createdPart &&
+                (createdPart.index < createdPart.total
+                  ? ` Hierboven staat nu de opdracht voor deel ${createdPart.index + 1}.`
+                  : ' Daarmee is het traject compleet.')}
             </span>
             <div className="row">
               <button

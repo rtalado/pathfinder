@@ -1,5 +1,5 @@
 {
-  "$comment": "Enige bron voor de kleuren. De app zet ze om in CSS-variabelen, de TUI in ANSI-kleuren. Voeg je hier een thema toe, dan verschijnt het vanzelf in beide.",
+  "$comment": "Enige bron voor de kleuren. De app zet ze om in CSS-variabelen, de TUI in ANSI-kleuren. Voeg je hier een thema toe, dan verschijnt het vanzelf in beide. \"mono\" zet de schrijfmachineletter aan; \"terminal\" trekt daarbovenop de hele vensterversie in de vorm van een terminal (zie src/terminal.css).",
   "themes": [
     {
       "id": "dark",
@@ -74,9 +74,10 @@
     {
       "id": "hacker",
       "name": "Terminal",
-      "description": "Fosforgroen op zwart, alles in een schrijfmachineletter.",
+      "description": "Fosforgroen op zwart: de hele app als terminalvenster, met scanlijnen en een knipperende cursor.",
       "dark": true,
       "mono": true,
+      "terminal": true,
       "colors": {
         "bg": "#000000",
         "bgSoft": "#030705",
@@ -109,9 +110,10 @@
     {
       "id": "amber",
       "name": "Amber",
-      "description": "De gloed van een oude monochrome monitor.",
+      "description": "Dezelfde terminal, maar dan in de gloed van een oude monochrome monitor.",
       "dark": true,
       "mono": true,
+      "terminal": true,
       "colors": {
         "bg": "#0f0a02",
         "bgSoft": "#140d03",
