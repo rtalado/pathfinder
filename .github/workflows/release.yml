@@ -40,6 +40,9 @@ jobs:
   linux:
     name: Linux-pakketten
     runs-on: ubuntu-latest
+    # Na Windows, niet ernaast: allebei laten publiceren met electron-builder
+    # betekent dat ze allebei dezelfde release proberen aan te maken.
+    needs: windows
     steps:
       - uses: actions/checkout@v4
 
