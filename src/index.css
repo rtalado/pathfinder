@@ -1,5 +1,5 @@
 /* ==========================================================================
-   LearnPath - basisstijl
+   Pathfinder - basisstijl
    Donker thema als uitgangspunt; het lichte thema zet alleen de tokens om.
    ========================================================================== */
 
@@ -31,6 +31,8 @@
   --node-topic-text: #1b1230;
   --node-subtopic: #2a323d;
   --node-subtopic-text: #d6dee7;
+  --node-done: #3fb950;
+  --node-done-text: #06210c;
 
   --danger: #f85149;
   --shadow-hard: 3px 3px 0 rgba(0, 0, 0, 0.55);
@@ -46,40 +48,9 @@
   color-scheme: dark;
 }
 
-[data-theme='light'] {
-  --bg: #f6f7f9;
-  --bg-soft: #eef0f4;
-  --surface: #ffffff;
-  --surface-2: #f2f4f7;
-  --surface-3: #e7eaef;
-  --border: #d8dee6;
-  --border-strong: #b9c2cd;
-  --text: #14181f;
-  --text-muted: #5b6673;
-  --text-dim: #7a8593;
-
-  --accent: #6d3ff0;
-  --accent-soft: #7c4dff;
-  --accent-ghost: rgba(109, 63, 240, 0.1);
-
-  --status-done: #1a7f37;
-  --status-done-soft: rgba(26, 127, 55, 0.12);
-  --status-doing: #9a6700;
-  --status-doing-soft: rgba(154, 103, 0, 0.12);
-  --status-skipped: #8c959f;
-
-  --node-milestone: #ffd94a;
-  --node-milestone-text: #241b00;
-  --node-topic: #d9c2fb;
-  --node-topic-text: #26124d;
-  --node-subtopic: #ffffff;
-  --node-subtopic-text: #262c34;
-
-  --shadow-hard: 3px 3px 0 rgba(20, 24, 31, 0.22);
-  --shadow-soft: 0 8px 24px rgba(20, 24, 31, 0.12);
-
-  color-scheme: light;
-}
+/* Vanaf hier zet de app de tokens per thema op <html>; zie src/lib/themes.ts en
+   shared/themes.json. Wat hierboven staat is het donkere thema als vangnet, voor
+   het moment tussen het laden van de pagina en het toepassen van je keuze. */
 
 * {
   box-sizing: border-box;
@@ -752,13 +723,8 @@ a:hover {
 }
 
 .rnode--done {
-  background: var(--status-done) !important;
-  color: #06210c !important;
-}
-
-[data-theme='light'] .rnode--done {
-  background: #7ee2a8 !important;
-  color: #06280f !important;
+  background: var(--node-done) !important;
+  color: var(--node-done-text) !important;
 }
 
 .rnode--doing {
@@ -1370,6 +1336,115 @@ a:hover {
 .empty {
   padding: 48px 20px;
   text-align: center;
+  color: var(--text-muted);
+}
+
+/* ---------- Themakiezer ---------- */
+
+.themegrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 10px;
+}
+
+.themecard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+
+.themecard:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.themecard--active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Het miniatuur laat de kleuren van het thema zelf zien, dus die staan als
+   inline-stijl op de elementen; hier alleen de vorm. */
+.themecard__preview {
+  display: flex;
+  flex-direction: column;
+  height: 74px;
+  overflow: hidden;
+  border: 1px solid;
+  border-radius: 6px;
+}
+
+.themecard__bar {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 0 6px;
+  height: 16px;
+  border-bottom: 1px solid;
+}
+
+.themecard__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.themecard__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  padding: 0 8px;
+}
+
+.themecard__line {
+  height: 4px;
+  border-radius: 2px;
+}
+
+.themecard__preview--split {
+  position: relative;
+  flex-direction: row;
+}
+
+.themecard__preview--split > span {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  padding: 0 8px;
+}
+
+.themecard__systemicon {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  color: var(--text-muted);
+}
+
+.themecard__name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.themecard--active .themecard__name {
+  color: var(--accent-soft);
+}
+
+.themecard__description {
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--text-muted);
 }
 

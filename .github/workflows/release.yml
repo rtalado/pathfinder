@@ -3,8 +3,8 @@ name: Release
 # Een release maak je door een versietag te pushen:
 #   npm version patch && git push --follow-tags
 #
-# Deze workflow bouwt daarna de Windows-installer en de Android-APK en hangt ze
-# aan een GitHub Release. De apps controleren zelf op nieuwe releases.
+# Deze workflow bouwt daarna de Windows-installer, de Linux-pakketten en de
+# Android-APK, en hangt ze aan een GitHub Release. De apps controleren zelf op nieuwe releases.
 
 on:
   push:
@@ -34,6 +34,29 @@ jobs:
 
       - name: Installer bouwen en publiceren
         run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  linux:
+    name: Linux-pakketten
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: App bouwen
+        run: npm run build
+
+      # De AppImage draait op elke distributie en werkt zichzelf bij; de .deb is
+      # voor wie liever via zijn pakketbeheerder installeert.
+      - name: AppImage en deb bouwen en publiceren
+        run: npx electron-builder --linux --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -100,7 +123,7 @@ jobs:
       - name: APK hernoemen
         run: |
           mkdir -p release
-          cp android/app/build/outputs/apk/release/*.apk "release/LearnPath-${GITHUB_REF_NAME#v}.apk"
+          cp android/app/build/outputs/apk/release/*.apk "release/Pathfinder-${GITHUB_REF_NAME#v}.apk"
 
       - name: Aan de release toevoegen
         uses: softprops/action-gh-release@v2

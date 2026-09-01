@@ -5,7 +5,7 @@ const { version } = require('../package.json');
  * De enige brug tussen de app en het besturingssysteem. Bewust klein gehouden:
  * alleen wat de renderer echt nodig heeft, en geen directe toegang tot Node.
  */
-contextBridge.exposeInMainWorld('learnpath', {
+contextBridge.exposeInMainWorld('pathfinder', {
   platform: 'desktop',
   appVersion: version,
 

@@ -1,7 +1,8 @@
 name: Controle
 
-# Loopt bij elke push: typecontrole, build, en een controle op de leerpaden zelf
-# (verwijzen alle nodes naar bestaande bestanden en documenten?).
+# Loopt bij elke push: typecontrole, build, een controle op de leerpaden zelf
+# (verwijzen alle nodes naar bestaande bestanden en documenten?), en een
+# syntaxcontrole op de terminalversie, die geen typecontrole heeft.
 
 on:
   push:
@@ -27,3 +28,11 @@ jobs:
 
       - name: Typecontrole en build
         run: npm run build
+
+      # De terminalversie is gewoon JavaScript; dit vangt in elk geval de tikfouten.
+      - name: Terminalversie controleren
+        run: node --check tui/index.mjs && for file in tui/*.mjs; do node --check "$file"; done
+
+      # Beide schermen lezen hetzelfde palet; een kapot bestand sloopt ze allebei.
+      - name: Thema's controleren
+        run: node scripts/check-themes.mjs

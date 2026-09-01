@@ -406,7 +406,7 @@ export function buildStructurePrompt(options: PromptOptions): string {
   const { topic, level, language, depth } = options;
   const counts = DEPTH_TEXT[depth];
 
-  return `Je maakt een leerpad voor de app LearnPath. Antwoord met UITSLUITEND een JSON-object in een codeblok. Geen inleiding, geen uitleg eromheen.
+  return `Je maakt een leerpad voor de app Pathfinder. Antwoord met UITSLUITEND een JSON-object in een codeblok. Geen inleiding, geen uitleg eromheen.
 
 ONDERWERP: ${topic}
 BEDOELD VOOR: ${LEVEL_TEXT[level]}

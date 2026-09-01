@@ -16,6 +16,8 @@ import { FileText, Layers, StickyNote } from 'lucide-react';
 import type { NodeStatus, Roadmap, RoadmapNode } from '@/types';
 import { computeLayout, edgePath, type RoadmapLayout } from '@/lib/layout';
 import { hslToCss, paintFor, phaseHue, type Hsl } from '@/lib/colors';
+import { findTheme } from '@/lib/themes';
+import { useSettings } from '@/store/settingsStore';
 
 interface NodeData extends Record<string, unknown> {
   node: RoadmapNode;
@@ -178,10 +180,15 @@ function Flow({ roadmap, statusOf, noteOf, selectedId, onSelect, onCycleStatus }
   const { setViewport } = useReactFlow();
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // De terminalthema's draaien om een enkele kleur; daar hoort een paarse fase
+  // niet in thuis, dus mag het thema de basiskleur overnemen.
+  const themeBase = useSettings((store) => findTheme(store.resolvedTheme).colors.graphBase);
+
   const hues = useMemo(() => {
     const count = roadmap.nodes.filter((node) => node.kind === 'milestone').length || 1;
-    return Array.from({ length: count }, (_, index) => phaseHue(roadmap.color ?? '#8b5cf6', index));
-  }, [roadmap]);
+    const base = themeBase ?? roadmap.color ?? '#8b5cf6';
+    return Array.from({ length: count }, (_, index) => phaseHue(base, index));
+  }, [roadmap, themeBase]);
 
   /** Wat er onder een fase hangt, voor het voortgangsringetje. */
   const descendants = useMemo(() => {

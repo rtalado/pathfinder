@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.example.learnpath',
-  appName: 'LearnPath',
+  appId: 'com.example.pathfinder',
+  appName: 'Pathfinder',
   webDir: 'dist',
   // Capacitor serveert de app via https://localhost in de webview; daardoor werkt
   // fetch() naar de contentbestanden net zoals op de desktop.

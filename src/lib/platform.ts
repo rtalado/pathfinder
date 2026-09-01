@@ -38,12 +38,12 @@ interface DesktopBridge {
 
 declare global {
   interface Window {
-    learnpath?: DesktopBridge;
+    pathfinder?: DesktopBridge;
     Capacitor?: { isNativePlatform?: boolean; getPlatform?: () => string };
   }
 }
 
-export const desktop = typeof window !== 'undefined' ? window.learnpath : undefined;
+export const desktop = typeof window !== 'undefined' ? window.pathfinder : undefined;
 
 export function platformKind(): PlatformKind {
   if (desktop) return 'desktop';

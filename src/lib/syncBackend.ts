@@ -129,7 +129,7 @@ async function serverRequest(
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
         // Zodat je in het logboek van je server ziet welk apparaat schreef.
-        'X-LearnPath-Device': deviceName(),
+        'X-Pathfinder-Device': deviceName(),
       },
     });
   } catch {
@@ -193,8 +193,8 @@ export async function pingServer(url: string, token: string): Promise<ServerInfo
   }
 
   const body = await response.json();
-  if (body?.name !== 'learnpath-server') {
-    throw new ServerError('Op dit adres draait iets anders dan de LearnPath-server.', 0);
+  if (body?.name !== 'pathfinder-server') {
+    throw new ServerError('Op dit adres draait iets anders dan de Pathfinder-server.', 0);
   }
   return {
     name: String(body.name),

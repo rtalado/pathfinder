@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * LearnPath-server: bewaart je voortgang en je eigen leerpaden, zodat je
+ * Pathfinder-server: bewaart je voortgang en je eigen leerpaden, zodat je
  * apparaten gelijk lopen zonder dat je gegevens het huis uit gaan.
  *
  * Bewust zonder afhankelijkheden: alleen Node 18 of nieuwer. Op een Raspberry Pi
  * start je hem met:
  *
- *   node learnpath-server.mjs
+ *   node pathfinder-server.mjs
  *
  * Instellingen via omgevingsvariabelen:
  *
@@ -123,7 +123,7 @@ function send(response, status, body) {
     // De app draait vanaf een eigen protocol en vanaf https://localhost in de
     // Android-webview. Toegang loopt via de sleutel, niet via de herkomst.
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-LearnPath-Device',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Pathfinder-Device',
     'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
     'Cache-Control': 'no-store',
   });
@@ -149,7 +149,7 @@ function readBody(request) {
 }
 
 function logLine(request, message) {
-  const device = request.headers['x-learnpath-device'] ?? 'onbekend apparaat';
+  const device = request.headers['x-pathfinder-device'] ?? 'onbekend apparaat';
   console.log(`${new Date().toISOString()}  ${device}  ${message}`);
 }
 
@@ -173,7 +173,7 @@ const server = http.createServer(async (request, response) => {
   try {
     if (url.pathname === '/api/v1/health' && request.method === 'GET') {
       send(response, 200, {
-        name: 'learnpath-server',
+        name: 'pathfinder-server',
         version: VERSION,
         documents: await countDocuments(),
       });
@@ -226,7 +226,7 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`LearnPath-server ${VERSION}`);
+  console.log(`Pathfinder-server ${VERSION}`);
   console.log(`Luistert op poort ${PORT}, gegevens in ${DATA_DIR}`);
   console.log('Vul in de app het adres van deze machine in, bijvoorbeeld:');
   console.log(`    http://raspberrypi.local:${PORT}\n`);

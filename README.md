@@ -1,4 +1,4 @@
-# LearnPath
+# Pathfinder
 
 Een leerpad-app in de stijl van roadmap.sh, die lokaal draait. Je maakt je eigen
 leerpaden door een AI ze te laten schrijven en het antwoord in de app te plakken.
@@ -7,13 +7,15 @@ via je eigen privé repository op GitHub.
 
 ## Downloaden
 
-Ga naar de [releases](https://github.com/rtalado/learnpath/releases/latest) en pak het bestand
+Ga naar de [releases](https://github.com/rtalado/pathfinder/releases/latest) en pak het bestand
 dat bij je apparaat past:
 
 | Bestand | Voor |
 |---|---|
-| `LearnPath-Setup-x.y.z.exe` | Windows |
-| `LearnPath-x.y.z.apk` | Android |
+| `Pathfinder-Setup-x.y.z.exe` | Windows |
+| `Pathfinder-x.y.z.AppImage` | Linux, elke distributie |
+| `Pathfinder-x.y.z.deb` | Linux met apt: Debian, Ubuntu, Mint |
+| `Pathfinder-x.y.z.apk` | Android |
 
 Er is geen account nodig en er wordt niets naar een server gestuurd. Alles blijft op
 je eigen apparaat, tenzij je zelf synchronisatie aanzet.
@@ -22,10 +24,54 @@ je eigen apparaat, tenzij je zelf synchronisatie aanzet.
 niet is ondertekend met een betaald certificaat. Klik op *Meer informatie* en daarna op
 *Toch uitvoeren*.
 
+**Linux**: de AppImage draait zonder installatie. Maak hem uitvoerbaar met
+`chmod +x Pathfinder-*.AppImage` en start hem; hij werkt zichzelf daarna bij. De
+`.deb` installeer je met `sudo apt install ./Pathfinder-*.deb` en werk je bij door
+een nieuwe te installeren. Je tokens worden bewaard in de sleutelbos van je
+bureaublad; draait die niet, dan komen ze in een bestand dat alleen jij mag lezen.
+
 **Android** vraagt eenmalig toestemming om een app buiten de Play Store te
 installeren. De APK is ondertekend met een testsleutel.
 
-Start daarna de app en volg het leerpad **Zo werkt LearnPath**; daar staat de rest in.
+Start daarna de app en volg het leerpad **Zo werkt Pathfinder**; daar staat de rest in.
+
+## In de terminal
+
+Naast de vensterversie is er een terminalversie met dezelfde leerpaden, dezelfde
+voortgang en dezelfde synchronisatie. Handig op een server, via ssh, of gewoon omdat
+het sneller werkt dan klikken.
+
+```bash
+npm run tui
+```
+
+| Toets | Doet |
+|---|---|
+| pijltjes of `j`/`k` | bewegen |
+| `enter` | openen |
+| `spatie` | status omzetten: te doen, mee bezig, afgerond, overgeslagen |
+| `n` | notitie bij een onderwerp |
+| `o` | overhoren |
+| `d` | documenten |
+| `i` | instellingen |
+| `s` | nu synchroniseren |
+| `t` | volgend thema |
+| `?` | alle toetsen |
+| `q` | stoppen |
+
+Er zijn geen extra pakketten voor nodig, alleen Node. Je voortgang komt in je eigen
+configuratiemap te staan (`~/.config/pathfinder` op Linux, `%APPDATA%Pathfinder` op
+Windows); `npm run tui -- --waar` laat zien waar precies. Vul bij **instellingen**
+dezelfde repository of server in als in de app, dan lopen ze gelijk.
+
+Je token komt in `secrets.json` in die map, leesbaar maar alleen voor jouw account.
+De vensterversie kan het op Windows en Linux wél versleutelen, omdat die bij de
+sleutelbos van je bureaublad kan; een terminalprogramma kan dat niet zonder daar een
+half bureaublad bij te halen.
+
+`npm run tui -- --themas` toont de thema's, `--thema nord` start er meteen mee. Kan
+je terminal geen UTF-8 aan, zet dan `PATHFINDER_ASCII=1`; dan gebruikt hij gewone
+tekens.
 
 ## Zelf bouwen of aanpassen
 
@@ -36,6 +82,19 @@ npm install
 npm run dev            # in de browser, tijdens het aanpassen
 npm run electron:dev   # als desktop-app
 npm run electron:build # maakt het installatiebestand in release/
+```
+
+Voor de terminalversie is geen bouwstap nodig:
+
+```bash
+npm run tui
+```
+
+Linux-pakketten bouw je op Linux (of laat je door de workflow bouwen), omdat
+electron-builder daar de gereedschappen voor AppImage en dpkg nodig heeft:
+
+```bash
+npm run electron:build:linux
 ```
 
 Voor Android voeg je het platform eerst toe:
@@ -66,8 +125,8 @@ importeert, wordt in de app zelf bewaard en gesynchroniseerd.
 ## Automatisch bijwerken
 
 Push je dit project naar je eigen GitHub-repository, dan bouwen de meegeleverde
-workflows bij elke versietag een Windows-installatiebestand en een APK, en hangen die
-aan een release. De apps controleren daar zelf op.
+workflows bij elke versietag een Windows-installatiebestand, een AppImage, een .deb
+en een APK, en hangen die aan een release. De apps controleren daar zelf op.
 
 ```bash
 npm version patch
@@ -79,6 +138,9 @@ van documenten staat in het originele project.
 
 ## Wat er in zit
 
+- een grafische app voor Windows, Linux en Android, en een terminalversie
+  (`npm run tui`) met dezelfde leerpaden en dezelfde synchronisatie
+- zeven thema's, waaronder twee terminalthema's; zie [shared/themes.json](shared/themes.json)
 - leerpaden als node-graph met pan en zoom, plus een lijstweergave voor mobiel
 - vier statussen per onderwerp, notities, bronnen met leesstatus
 - overhoorkaarten met spaced repetition

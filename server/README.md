@@ -1,4 +1,4 @@
-# LearnPath-server
+# Pathfinder-server
 
 Een klein programma dat je voortgang en je eigen leerpaden bewaart, zodat je
 apparaten gelijk lopen zonder dat je gegevens het huis uit gaan. Draait prima op een
@@ -9,20 +9,20 @@ Eén bestand, geen afhankelijkheden, alleen Node.js 18 of nieuwer.
 ## Starten
 
 ```bash
-node learnpath-server.mjs
+node pathfinder-server.mjs
 ```
 
 Bij de eerste start maakt hij een toegangssleutel aan, toont die in het venster en
 bewaart hem in `data/token.txt`. Die sleutel vul je in de app in.
 
 ```
-LearnPath-server 1.0.0
-Luistert op poort 8787, gegevens in /home/pi/learnpath/data
+Pathfinder-server 1.0.0
+Luistert op poort 8787, gegevens in /home/pi/pathfinder/data
 ```
 
 ## Instellen in de app
 
-Ga in LearnPath naar **Instellingen → Synchronisatie**, kies **Eigen server** en vul in:
+Ga in Pathfinder naar **Instellingen → Synchronisatie**, kies **Eigen server** en vul in:
 
 | Veld | Waarde |
 |---|---|
@@ -40,20 +40,20 @@ hostname -I
 
 ## Blijvend laten draaien
 
-Op een Pi met systemd, als `/etc/systemd/system/learnpath.service`:
+Op een Pi met systemd, als `/etc/systemd/system/pathfinder.service`:
 
 ```ini
 [Unit]
-Description=LearnPath sync-server
+Description=Pathfinder sync-server
 After=network-online.target
 
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/learnpath
-ExecStart=/usr/bin/node /home/pi/learnpath/learnpath-server.mjs
+WorkingDirectory=/home/pi/pathfinder
+ExecStart=/usr/bin/node /home/pi/pathfinder/pathfinder-server.mjs
 Environment=PORT=8787
-Environment=DATA_DIR=/home/pi/learnpath/data
+Environment=DATA_DIR=/home/pi/pathfinder/data
 Restart=always
 RestartSec=5
 
@@ -64,9 +64,9 @@ WantedBy=multi-user.target
 Daarna:
 
 ```bash
-sudo systemctl enable --now learnpath
-sudo systemctl status learnpath
-journalctl -u learnpath -f
+sudo systemctl enable --now pathfinder
+sudo systemctl status pathfinder
+journalctl -u pathfinder -f
 ```
 
 ## Instellingen
@@ -116,7 +116,7 @@ Voor wie zelf iets wil bouwen. Alles vraagt `Authorization: Bearer <sleutel>`.
 
 | Verzoek | Antwoord |
 |---|---|
-| `GET /api/v1/health` | `{ "name": "learnpath-server", "version": "1.0.0", "documents": 2 }` |
+| `GET /api/v1/health` | `{ "name": "pathfinder-server", "version": "1.0.0", "documents": 2 }` |
 | `GET /api/v1/doc/progress` | `{ "data": "...", "version": "abc123" }` of 404 |
 | `PUT /api/v1/doc/progress` | verstuur `{ "version": "abc123", "data": "..." }`, krijgt `{ "version": "def456" }` of 409 |
 

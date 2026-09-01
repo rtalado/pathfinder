@@ -1,5 +1,5 @@
 {
-  "name": "learnpath",
+  "name": "pathfinder",
   "version": "0.3.3",
   "private": true,
   "description": "Modulaire leerpad-app voor desktop en Android; leerpaden maak je met een AI.",
@@ -12,20 +12,23 @@
     "dev": "npm run content:index && vite",
     "build": "npm run content:index && tsc --noEmit && vite build",
     "preview": "vite preview",
+    "tui": "node tui/index.mjs",
     "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder --win --publish never",
+    "electron:build:linux": "npm run build && electron-builder --linux --publish never",
     "electron:publish": "npm run build && electron-builder --win --publish always",
     "android:sync": "npm run build && node scripts/set-android-version.mjs && cap sync android",
     "android:open": "cap open android",
     "content:index": "node scripts/build-content-index.mjs",
     "content:check": "node scripts/check-content.mjs",
+    "themes:check": "node scripts/check-themes.mjs",
     "android:version": "node scripts/set-android-version.mjs",
     "icons": "node scripts/make-icons.mjs",
     "skeleton": "node scripts/make-skeleton.mjs"
   },
   "build": {
-    "appId": "com.example.learnpath",
-    "productName": "LearnPath",
+    "appId": "com.example.pathfinder",
+    "productName": "Pathfinder",
     "copyright": "",
     "directories": {
       "output": "release",
@@ -34,7 +37,8 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "build/icon.png"
     ],
     "win": {
       "target": [
@@ -46,20 +50,47 @@
         }
       ],
       "icon": "build/icon.ico",
-      "artifactName": "LearnPath-Setup-${version}.${ext}"
+      "artifactName": "Pathfinder-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "LearnPath"
+      "shortcutName": "Pathfinder"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Education",
+      "synopsis": "Leerpaden volgen, met je voortgang op al je apparaten.",
+      "maintainer": "rtalado <noreply@users.noreply.github.com>",
+      "artifactName": "Pathfinder-${version}.${ext}",
+      "desktop": {
+        "Name": "Pathfinder",
+        "Comment": "Leerpaden volgen en je voortgang bijhouden",
+        "Categories": "Education;Utility;",
+        "StartupWMClass": "Pathfinder"
+      }
     },
     "publish": [
       {
         "provider": "github",
         "owner": "rtalado",
-        "repo": "learnpath",
+        "repo": "pathfinder",
         "private": false,
         "releaseType": "release"
       }
@@ -99,5 +130,8 @@
     "electron@33.4.11": true,
     "esbuild@0.21.5": true
   },
-  "license": "MIT"
+  "license": "MIT",
+  "bin": {
+    "pathfinder": "tui/index.mjs"
+  }
 }

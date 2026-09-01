@@ -1,5 +1,5 @@
 /**
- * Domeinmodel van LearnPath.
+ * Domeinmodel van Pathfinder.
  *
  * Een leerpad is een gewone map onder content/roadmaps/ met een roadmap.json en
  * markdown-bestanden. Zolang een nieuwe map dit model volgt, verschijnt hij vanzelf
