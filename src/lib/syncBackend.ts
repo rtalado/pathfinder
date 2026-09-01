@@ -1,5 +1,5 @@
 import type { RepoRef } from './github';
-import { GitHubError, getFile, putFile } from './github';
+import { GitHubError, getFile, getRepo, putFile, repoIsEmpty } from './github';
 import { deviceName } from './device';
 
 /**
@@ -59,6 +59,40 @@ function githubPath(basePath: string, name: DocumentName): string {
   return parts.join('/');
 }
 
+/**
+ * GitHub antwoordt met een kaal "Not Found" op drie heel verschillende situaties:
+ * de repository bestaat niet, je token mag er niet bij, of de branch bestaat nog
+ * niet. Aan die melding heeft niemand iets, dus zoeken we bij een 404 uit welke
+ * van de drie het is. Dat kost alleen bij een fout een extra verzoek.
+ */
+async function explain404(token: string, ref: RepoRef, message: string): Promise<string> {
+  try {
+    await getRepo(token, ref.owner, ref.repo);
+  } catch {
+    return (
+      `De repository ${ref.owner}/${ref.repo} bestaat niet, of je token heeft er geen toegang toe. ` +
+      'Een fine-grained token geef je per repository rechten: controleer of deze erbij staat, met Contents: read and write.'
+    );
+  }
+
+  try {
+    if (await repoIsEmpty(token, ref.owner, ref.repo)) {
+      return (
+        `De repository ${ref.owner}/${ref.repo} heeft nog geen enkele commit, en de app kreeg hem ook niet aangemaakt. ` +
+        'Maak op GitHub een bestand aan (bijvoorbeeld een README) en probeer het daarna opnieuw.'
+      );
+    }
+  } catch {
+    // Dan houden we het bij de melding hieronder.
+  }
+
+  return (
+    `De branch "${ref.branch}" bestaat niet in ${ref.owner}/${ref.repo}. ` +
+    'Vul bij Geavanceerd de branch in die de repository wel heeft. ' +
+    `(GitHub: ${message})`
+  );
+}
+
 export function githubBackend(token: string, ref: RepoRef, basePath: string): SyncBackend {
   return {
     kind: 'github',
@@ -83,6 +117,16 @@ export function githubBackend(token: string, ref: RepoRef, basePath: string): Sy
       } catch (error) {
         if (error instanceof GitHubError && (error.status === 409 || error.status === 422)) {
           throw new SyncConflict(error.message);
+        }
+        if (error instanceof GitHubError && error.status === 404) {
+          throw new GitHubError(await explain404(token, ref, error.message), 404);
+        }
+        if (error instanceof GitHubError && error.status === 403) {
+          throw new GitHubError(
+            `${error.message} Het token mag niet schrijven in ${ref.owner}/${ref.repo}; ` +
+              'een fine-grained token heeft daarvoor Contents: read and write nodig.',
+            403
+          );
         }
         throw error;
       }

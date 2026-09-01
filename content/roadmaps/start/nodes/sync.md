@@ -10,6 +10,8 @@ De app kan je voortgang en je eigen leerpaden gelijk houden tussen je computer e
 
 Die drie vul je in bij **Instellingen**. Klik op Verbinding testen en zet de schakelaar aan. Doe hetzelfde op je andere apparaat.
 
+De repository mag helemaal leeg zijn; de app zet er zelf twee bestanden in zodra er iets te bewaren valt. Wil je meteen zien dat het werkt, klik dan op **Opslag klaarzetten**: dan komen `progress.json` en `roadmaps.json` er nu al in te staan. Zolang je nog niets hebt afgevinkt en geen eigen leerpad hebt toegevoegd, blijft de repository leeg — dat is geen storing, en de app zegt het er ook bij.
+
 ## Via je eigen server
 
 In de map server van dit project staat een programma van één bestand. Start het op de machine die aan blijft staan:

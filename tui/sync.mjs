@@ -74,6 +74,17 @@ function githubPath(basePath, name) {
   return parts.join('/');
 }
 
+/** Of de repository nog geen enkele commit heeft, en dus ook geen branch. */
+async function repoIsEmpty(token, ref) {
+  const response = await fetch(`${API}/repos/${ref.owner}/${ref.repo}/branches?per_page=1`, {
+    cache: 'no-store',
+    headers: githubHeaders(token),
+  });
+  if (!response.ok) return false;
+  const body = await response.json();
+  return Array.isArray(body) && body.length === 0;
+}
+
 export function githubBackend(token, ref, basePath) {
   const contents = (name) =>
     `${API}/repos/${ref.owner}/${ref.repo}/contents/${encodeURI(githubPath(basePath, name))}`;
@@ -99,16 +110,28 @@ export function githubBackend(token, ref, basePath) {
     },
 
     async write(name, text, version) {
-      const response = await fetch(contents(name), {
-        method: 'PUT',
-        headers: { ...githubHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: `${name === 'progress' ? 'Voortgang' : 'Leerpaden'} van ${deviceName()}`,
-          content: Buffer.from(text, 'utf8').toString('base64'),
-          branch: ref.branch,
-          ...(version ? { sha: version } : {}),
-        }),
-      });
+      const send = (withBranch) =>
+        fetch(contents(name), {
+          method: 'PUT',
+          headers: { ...githubHeaders(token), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: `${name === 'progress' ? 'Voortgang' : 'Leerpaden'} van ${deviceName()}`,
+            content: Buffer.from(text, 'utf8').toString('base64'),
+            ...(withBranch ? { branch: ref.branch } : {}),
+            ...(version ? { sha: version } : {}),
+          }),
+        });
+
+      let response = await send(true);
+
+      // Een repository die zonder README is aangemaakt heeft nog geen commit en
+      // dus geen branch; GitHub weigert dan een schrijfactie met een branchnaam
+      // erbij. Zonder branchnaam schrijft hij naar de standaardbranch en maakt
+      // hij die met deze eerste commit aan.
+      if (response.status === 404 && !version && (await repoIsEmpty(token, ref))) {
+        response = await send(false);
+      }
+
       // 409 en 422 betekenen allebei: jij ging van een oudere versie uit.
       if (response.status === 409 || response.status === 422) {
         throw new SyncConflict(String(response.status));
@@ -261,16 +284,23 @@ async function syncDocument(backend, name, local, handler) {
 
     // Niets veranderd? Dan niets schrijven; anders staat de opslag vol lege wijzigingen.
     if (remote && normalizeText(remote.text) === normalizeText(serialized)) {
-      return { state: merged.state, pulled: merged.pulled, pushed: 0, wrote: false };
+      return { state: merged.state, pulled: merged.pulled, pushed: 0, wrote: false, exists: true };
     }
-    // Nog niets te bewaren? Dan ook geen leeg bestand aanmaken.
+    // Nog niets te bewaren? Dan ook geen leeg bestand aanmaken. "exists" zegt het
+    // verschil tussen "stond er al goed op" en "staat er nog helemaal niet".
     if (!remote && handler.isEmpty(merged.state)) {
-      return { state: merged.state, pulled: merged.pulled, pushed: 0, wrote: false };
+      return { state: merged.state, pulled: merged.pulled, pushed: 0, wrote: false, exists: false };
     }
 
     try {
       await backend.write(name, serialized, remote?.version ?? null);
-      return { state: merged.state, pulled: merged.pulled, pushed: merged.pushed, wrote: true };
+      return {
+        state: merged.state,
+        pulled: merged.pulled,
+        pushed: merged.pushed,
+        wrote: true,
+        exists: true,
+      };
     } catch (error) {
       if (!(error instanceof SyncConflict)) throw error;
       if (attempt >= MAX_ATTEMPTS) {

@@ -737,7 +737,17 @@ export function createApp(options = {}) {
 
       const pulled = progress.pulled + library.pulled;
       const pushed = progress.pushed + library.pushed;
-      say(`Bijgewerkt: ${pulled} binnen, ${pushed} verstuurd${extra}.`, 'ok');
+
+      // Verbinding in orde, maar de opslag blijft leeg omdat er nog niets is.
+      // Dat is geen fout, en toch precies waar je naar zit te kijken.
+      if (!progress.exists && !library.exists) {
+        say(
+          `Verbonden met ${backend.label}, maar er valt nog niets te bewaren: geen voortgang en geen eigen leerpad.`,
+          'ok'
+        );
+      } else {
+        say(`Bijgewerkt: ${pulled} binnen, ${pushed} verstuurd${extra}.`, 'ok');
+      }
     } catch (error) {
       say(error instanceof SyncError ? error.message : `Synchroniseren mislukte: ${error.message}`, 'error');
     } finally {

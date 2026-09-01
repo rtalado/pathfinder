@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   ClipboardCopy,
   Download,
+  FolderPlus,
   Github,
   RefreshCw,
   RotateCcw,
@@ -12,8 +13,9 @@ import {
 } from 'lucide-react';
 import type { SyncBackendKind } from '@/types';
 import { Topbar } from '@/components/Topbar';
-import { getRepo, getViewer } from '@/lib/github';
-import { pingServer } from '@/lib/syncBackend';
+import { branchExists, getRepo, getViewer, repoIsEmpty } from '@/lib/github';
+import { githubBackend, pingServer, serverBackend } from '@/lib/syncBackend';
+import { initializeStorage } from '@/lib/sync';
 import { APP_VERSION, IS_DESKTOP, openExternal, platformKind } from '@/lib/platform';
 import { RELEASE_SOURCE, useUpdate } from '@/store/updateStore';
 import { clearPulledContent, loadManifest, usingPulledContent } from '@/lib/content';
@@ -46,6 +48,7 @@ export function SettingsPage() {
   const syncNow = useProgress((store) => store.syncNow);
   const startAutoSync = useProgress((store) => store.startAutoSync);
   const progress = useProgress((store) => store.state);
+  const library = useProgress((store) => store.library);
   // Loopt op zodra er content is opgehaald, zodat het overzicht hieronder klopt.
   const loadedContent = useProgress((store) => store.contentVersion);
 
@@ -56,6 +59,7 @@ export function SettingsPage() {
   const [tokenInput, setTokenInput] = useState('');
   const [check, setCheck] = useState<{ ok: boolean; message: string } | null>(null);
   const [checking, setChecking] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [contentVersion, setContentVersion] = useState('');
   const [fromRepo, setFromRepo] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -108,17 +112,40 @@ export function SettingsPage() {
       const viewer = await getViewer(token);
       const owner = sync.owner.trim() || viewer.login;
       if (!sync.owner.trim()) setSync({ owner });
-      const repo = await getRepo(token, owner, sync.repo.trim());
+      const name = sync.repo.trim();
+      const repo = await getRepo(token, owner, name);
 
       if (!repo.permissions?.push) {
         throw new Error(`Het token mag niet schrijven in ${repo.fullName}.`);
       }
-      setCheck({
-        ok: true,
-        message:
-          `Verbonden als ${viewer.login} met ${repo.fullName}` +
-          (repo.private ? ' (prive).' : '. Let op: deze repo is publiek.'),
-      });
+
+      const verdict =
+        `Verbonden als ${viewer.login} met ${repo.fullName}` +
+        (repo.private ? ' (prive).' : '. Let op: deze repo is publiek.');
+
+      // Een repository die zonder README is aangemaakt heeft nog geen commit en
+      // dus geen branch. Alles klopt dan, en toch blijft hij leeg tot er iets te
+      // bewaren valt; dat is precies waar iemand op gaat zitten wachten.
+      if (await repoIsEmpty(token, owner, name)) {
+        setCheck({
+          ok: true,
+          message: `${verdict} Hij is nog helemaal leeg: nog geen enkele commit. Klik op "Opslag klaarzetten" om de twee documenten nu aan te maken.`,
+        });
+        return;
+      }
+
+      // Een repository met alleen een master-branch is de andere veelvoorkomende
+      // reden dat er niets verschijnt. Die zetten we meteen goed.
+      if (!(await branchExists(token, { owner, repo: name, branch: sync.branch }))) {
+        setSync({ branch: repo.defaultBranch });
+        setCheck({
+          ok: true,
+          message: `${verdict} De branch "${sync.branch}" bestaat daar niet; ingesteld op "${repo.defaultBranch}".`,
+        });
+        return;
+      }
+
+      setCheck({ ok: true, message: verdict });
     } catch (error) {
       setCheck({
         ok: false,
@@ -126,6 +153,39 @@ export function SettingsPage() {
       });
     } finally {
       setChecking(false);
+    }
+  }
+
+  /**
+   * Zet de twee documenten neer zonder op voortgang te wachten. Twee dingen in
+   * een: het bewijst dat schrijven lukt, en het geeft een lege repository zijn
+   * eerste commit.
+   */
+  async function prepareStorage() {
+    setPreparing(true);
+    setCheck(null);
+    try {
+      const token = tokenInput.trim() || (await readToken());
+      if (!token) throw new Error('Vul eerst een sleutel in.');
+
+      const backend = onServer
+        ? serverBackend(sync.serverUrl, token)
+        : githubBackend(token, { owner: sync.owner.trim(), repo: sync.repo.trim(), branch: sync.branch }, sync.path);
+
+      const { created } = await initializeStorage(backend, progress, library);
+      setCheck({
+        ok: true,
+        message: created.length
+          ? `Klaargezet in ${backend.label}: ${created.length === 2 ? 'progress.json en roadmaps.json' : `${created[0]}.json`} aangemaakt.`
+          : `In ${backend.label} stonden beide documenten er al.`,
+      });
+    } catch (error) {
+      setCheck({
+        ok: false,
+        message: error instanceof Error ? error.message : 'Klaarzetten mislukt.',
+      });
+    } finally {
+      setPreparing(false);
     }
   }
 
@@ -298,10 +358,20 @@ export function SettingsPage() {
               </span>
             </div>
 
-            <div className="row">
+            <div className="row" style={{ flexWrap: 'wrap' }}>
               <button type="button" className="btn" onClick={testConnection} disabled={checking}>
                 {checking ? <span className="spinner" /> : <CheckCircle2 size={14} />} Verbinding
                 testen
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void prepareStorage()}
+                disabled={preparing}
+                title="Zet progress.json en roadmaps.json neer, ook als er nog geen voortgang is. Handig bij een nieuwe, lege repository."
+              >
+                {preparing ? <span className="spinner" /> : <FolderPlus size={14} />} Opslag
+                klaarzetten
               </button>
               <button
                 type="button"

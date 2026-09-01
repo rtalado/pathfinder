@@ -107,10 +107,60 @@ export interface PutResult {
   sha: string;
 }
 
+/** Of de repository nog geen enkele commit heeft, en dus ook geen branch. */
+export async function repoIsEmpty(token: string, owner: string, repo: string): Promise<boolean> {
+  const response = await fetch(`${API}/repos/${owner}/${repo}/branches?per_page=1`, {
+    ...NO_CACHE,
+    headers: headers(token),
+  });
+  if (!response.ok) await fail(response);
+  const body = await response.json();
+  return Array.isArray(body) && body.length === 0;
+}
+
+/** Of de ingestelde branch bestaat. Bestaat de repo niet, dan gooit dit. */
+export async function branchExists(token: string, ref: RepoRef): Promise<boolean> {
+  const url = `${API}/repos/${ref.owner}/${ref.repo}/branches/${encodeURIComponent(ref.branch)}`;
+  const response = await fetch(url, { ...NO_CACHE, headers: headers(token) });
+  if (response.status === 404) return false;
+  if (!response.ok) await fail(response);
+  return true;
+}
+
+async function putRequest(
+  token: string,
+  ref: RepoRef,
+  path: string,
+  text: string,
+  sha: string | null,
+  message: string,
+  /** Zonder branch schrijft GitHub naar de standaardbranch, en maakt die zo nodig aan. */
+  withBranch: boolean
+): Promise<Response> {
+  return fetch(`${API}/repos/${ref.owner}/${ref.repo}/contents/${encodeURI(path)}`, {
+    method: 'PUT',
+    headers: { ...headers(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message,
+      content: encodeBase64(text),
+      ...(withBranch ? { branch: ref.branch } : {}),
+      ...(sha ? { sha } : {}),
+    }),
+  });
+}
+
 /**
  * Schrijft een bestand weg. `sha` is de versie die je dacht te overschrijven; laat
  * GitHub met 409 afwijzen als een ander apparaat er intussen tussen kwam. De
  * synclaag mergt dan opnieuw en probeert het nog eens.
+ *
+ * Een repository die je zonder README aanmaakt heeft nog geen enkele commit en
+ * daarmee ook geen branch. GitHub weigert een schrijfactie die naar een branch
+ * verwijst die niet bestaat, en dat is precies de repository die iemand net voor
+ * zijn voortgang heeft aangemaakt. Laat je de branch weg, dan schrijft GitHub naar
+ * de standaardbranch en maakt hij die met deze eerste commit aan. Dat proberen we
+ * dus, maar alleen als de repository echt leeg is: schrijven naar een andere
+ * branch dan je hebt ingesteld zou anders stilletjes gebeuren.
  */
 export async function putFile(
   token: string,
@@ -120,17 +170,12 @@ export async function putFile(
   sha: string | null,
   message: string
 ): Promise<PutResult> {
-  const url = `${API}/repos/${ref.owner}/${ref.repo}/contents/${encodeURI(path)}`;
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: { ...headers(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message,
-      content: encodeBase64(text),
-      branch: ref.branch,
-      ...(sha ? { sha } : {}),
-    }),
-  });
+  let response = await putRequest(token, ref, path, text, sha, message, true);
+
+  if (response.status === 404 && !sha && (await repoIsEmpty(token, ref.owner, ref.repo))) {
+    response = await putRequest(token, ref, path, text, sha, message, false);
+  }
+
   if (!response.ok) await fail(response);
   const body = await response.json();
   return { sha: body.content.sha as string };

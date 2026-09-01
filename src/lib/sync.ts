@@ -20,6 +20,13 @@ export interface SyncOutcome<T> {
   pushed: number;
   /** False als er niets te schrijven viel. */
   wrote: boolean;
+  /**
+   * Of het document na afloop in de opslag staat. Onwaar betekent: er valt nog
+   * niets te bewaren. Zonder dit onderscheid lijkt "niets geschreven omdat alles
+   * al klopt" hetzelfde als "niets geschreven omdat er niets is", en dat is
+   * precies het verschil waar je naar zoekt als je repository leeg blijft.
+   */
+  exists: boolean;
 }
 
 interface DocumentHandler<T> {
@@ -55,19 +62,25 @@ async function syncDocument<T>(
 
     // Niets veranderd? Dan niets schrijven; anders staat de opslag vol lege wijzigingen.
     if (remote && normalize(remote.text) === normalize(serialized)) {
-      return { state: merged.state, pulled: merged.pulled, pushed: 0, wrote: false };
+      return { state: merged.state, pulled: merged.pulled, pushed: 0, wrote: false, exists: true };
     }
 
     // Bestaat het nog niet en valt er niets te bewaren? Dan ook niet aanmaken. Dat
     // scheelt bij de eerste synchronisatie een schrijfactie, en juist twee commits
     // vlak na elkaar zijn de reden dat GitHub soms weigert.
     if (!remote && handler.isEmpty(merged.state)) {
-      return { state: merged.state, pulled: merged.pulled, pushed: 0, wrote: false };
+      return { state: merged.state, pulled: merged.pulled, pushed: 0, wrote: false, exists: false };
     }
 
     try {
       await backend.write(name, serialized, remote?.version ?? null);
-      return { state: merged.state, pulled: merged.pulled, pushed: merged.pushed, wrote: true };
+      return {
+        state: merged.state,
+        pulled: merged.pulled,
+        pushed: merged.pushed,
+        wrote: true,
+        exists: true,
+      };
     } catch (error) {
       if (!(error instanceof SyncConflict)) throw error;
       lastConflict = error;
@@ -111,6 +124,42 @@ export function syncLibrary(
     merge: mergeLibrary,
     isEmpty: isLibraryEmpty,
   });
+}
+
+/**
+ * Zet de twee documenten neer, ook als ze nog leeg zijn.
+ *
+ * Bij het gewone synchroniseren doen we dat expres niet: een leeg document
+ * aanmaken is een commit zonder inhoud, en twee commits vlak na elkaar zijn
+ * precies waar GitHub over valt. Maar wie net een repository heeft aangemaakt wil
+ * zien dat het werkt, in plaats van een lege repository en de vraag of hij iets
+ * verkeerd heeft ingevuld. Deze functie hoort dus bij een knop, niet bij de
+ * achtergrondsync: hij bewijst dat het schrijven lukt en maakt meteen de eerste
+ * commit, waar een repository zonder README nog op wacht.
+ */
+export async function initializeStorage(
+  backend: SyncBackend,
+  progress: ProgressState,
+  library: RoadmapLibrary
+): Promise<{ created: DocumentName[] }> {
+  const created: DocumentName[] = [];
+  const documents: [DocumentName, unknown][] = [
+    ['progress', progress],
+    ['roadmaps', library],
+  ];
+
+  for (const [name, state] of documents) {
+    if (await backend.read(name)) continue;
+    if (created.length) {
+      // De vorige schrijfactie heeft de branch net verzet; GitHub wil daar even
+      // van bijkomen voor hij een tweede commit accepteert.
+      await wait(1200);
+    }
+    await backend.write(name, `${JSON.stringify(state, null, 2)}\n`, null);
+    created.push(name);
+  }
+
+  return { created };
 }
 
 function normalize(text: string): string {

@@ -264,10 +264,13 @@ export const useProgress = create<ProgressStore>((set, get) => {
 
         let extra = '';
         let contentError: string | null = null;
+        /** Null zolang de leerpaden deze keer niet zijn meegenomen. */
+        let libraryExists: boolean | null = null;
 
         if (!options?.skipLibrary || libraryDirty) {
           const library = await syncLibrary(backend, get().library);
           libraryDirty = false;
+          libraryExists = library.exists;
           if (library.pulled > 0) {
             set({ library: library.state, contentVersion: get().contentVersion + 1 });
             extra += ` ${library.pulled} leerpad(en) opgehaald.`;
@@ -302,6 +305,12 @@ export const useProgress = create<ProgressStore>((set, get) => {
           }
         }
 
+        // Er staat nog niets in de opslag en er valt ook niets te bewaren. Dat is
+        // geen fout, maar "Gesynchroniseerd" melden terwijl de repository leeg
+        // blijft is de zekerste manier om iemand te laten zoeken naar een fout
+        // die er niet is.
+        const nothingStored = !outcome.exists && libraryExists === false;
+
         set({
           sync: {
             phase: contentError ? 'error' : 'ok',
@@ -310,9 +319,14 @@ export const useProgress = create<ProgressStore>((set, get) => {
             pushed: outcome.pushed,
             message: contentError
               ? `Voortgang bijgewerkt, maar content ophalen mislukte: ${contentError}`
-              : options?.silent && !extra
-                ? undefined
-                : `Gesynchroniseerd.${extra}`,
+              : nothingStored
+                ? `Verbonden met ${backend.label}, maar er valt nog niets te bewaren: er staat geen ` +
+                  'voortgang en geen eigen leerpad op dit apparaat. Vink een onderwerp af of voeg een ' +
+                  'leerpad toe, dan verschijnt het bij de volgende synchronisatie. Wil je nu al zien ' +
+                  'dat het werkt, gebruik dan "Opslag klaarzetten" bij de instellingen.'
+                : options?.silent && !extra
+                  ? undefined
+                  : `Gesynchroniseerd.${extra}`,
           },
         });
       } catch (error) {
