@@ -73,6 +73,29 @@ half bureaublad bij te halen.
 je terminal geen UTF-8 aan, zet dan `PATHFINDER_ASCII=1`; dan gebruikt hij gewone
 tekens.
 
+## Een heel traject in plaats van een enkel pad
+
+Zet bij **Nieuw leerpad** de knop *Een heel traject in drie delen* aan, dan krijg je
+geen één maar drie opdrachten: begin, midden en eind. Elk deel wordt een eigen
+leerpad, zodat een AI er de aandacht aan kan geven van een heel pad in plaats van
+dertig fasen in een antwoord te proppen.
+
+De delen sluiten op elkaar aan doordat de opdracht voor deel twee en drie de
+inhoudsopgave van de delen die er al staan meekrijgt: wat al behandeld is komt er
+niet nog een keer in, en het eerste onderwerp begint waar het vorige deel ophoudt.
+Doe ze dus één voor één: opdracht kopiëren, antwoord terugplakken, volgend deel.
+
+## De app als terminal
+
+De thema's **Terminal** en **Amber** veranderen meer dan de kleur en de letter. De
+hele app krijgt de vorm van een terminal: rechte hoeken, een promptregel met een
+knipperende blokcursor in plaats van een titel, `[ knoppen ]` tussen haken,
+aankruisvakjes in plaats van schuifjes, markdown met zijn eigen `#` en `-` ervoor,
+een voortgangsbalk in blokjes, en scanlijnen met een lichte gloed over het scherm.
+
+Zijn die scanlijnen te druk om lang in te lezen, zet dan bij **instellingen** de
+knop *Beeldbuis* uit; de rest van de vorm blijft dan staan.
+
 ## Zelf bouwen of aanpassen
 
 Je hebt [Node.js](https://nodejs.org) 20 of nieuwer nodig.
@@ -140,8 +163,11 @@ van documenten staat in het originele project.
 
 - een grafische app voor Windows, Linux en Android, en een terminalversie
   (`npm run tui`) met dezelfde leerpaden en dezelfde synchronisatie
-- zeven thema's, waaronder twee terminalthema's; zie [shared/themes.json](shared/themes.json)
+- zeven thema's, waaronder twee terminalthema's die de hele app als terminalvenster
+  tekenen; zie [shared/themes.json](shared/themes.json)
 - leerpaden als node-graph met pan en zoom, plus een lijstweergave voor mobiel
+- een heel traject in drie delen laten schrijven: begin, midden en eind als losse
+  leerpaden die op elkaar aansluiten
 - vier statussen per onderwerp, notities, bronnen met leesstatus
 - overhoorkaarten met spaced repetition
 - voortgangsstatistieken en een dag-streak

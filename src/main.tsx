@@ -8,10 +8,19 @@ import { useProgress } from './store/progressStore';
 import { readToken, useSettings } from './store/settingsStore';
 import { applyTheme, findTheme } from './lib/themes';
 import './index.css';
+import './terminal.css';
 
 /** Zet het thema op <html>, zodat de CSS-tokens meteen kloppen. */
 function useTheme() {
   const theme = useSettings((store) => store.theme);
+  const crt = useSettings((store) => store.crt);
+
+  // De beeldbuislaag hoort bij de terminalthema's, maar staat los van je
+  // themakeuze: wie de scanlijnen te druk vindt zet ze uit en houdt de rest.
+  useEffect(() => {
+    document.documentElement.dataset.crt = crt ? 'on' : 'off';
+  }, [crt]);
+
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: light)');
     const apply = () => {

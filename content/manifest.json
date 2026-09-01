@@ -1,6 +1,6 @@
 {
-  "contentVersion": "7d63584a08f50061",
-  "generatedAt": "2026-09-01T12:12:02.234Z",
+  "contentVersion": "4812e1376b5b1bef",
+  "generatedAt": "2026-09-01T14:43:34.716Z",
   "roadmaps": [
     {
       "id": "start",
@@ -23,8 +23,8 @@
     },
     {
       "path": "roadmaps/start/nodes/eigen-pad.md",
-      "hash": "e50263eab45f45ea",
-      "size": 873
+      "hash": "1406bf1e56d0d4ba",
+      "size": 1323
     },
     {
       "path": "roadmaps/start/nodes/installeren.md",

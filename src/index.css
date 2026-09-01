@@ -1339,6 +1339,70 @@ a:hover {
   color: var(--text-muted);
 }
 
+/* ---------- Traject van drie delen ---------- */
+
+.track {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.track__part {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.track__part--active {
+  border-color: var(--accent);
+  background: var(--accent-ghost);
+}
+
+.track__part--done .track__title,
+.track__part--done .track__scope {
+  color: var(--text-muted);
+}
+
+.track__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.track__num {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  font-size: 12px;
+  font-weight: 700;
+  flex: none;
+}
+
+.track__part--done .track__num {
+  background: var(--status-done);
+  border-color: var(--status-done);
+  color: var(--node-done-text);
+}
+
+.track__title {
+  font-weight: 650;
+  font-size: 13.5px;
+}
+
+.track__scope {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
 /* ---------- Themakiezer ---------- */
 
 .themegrid {
