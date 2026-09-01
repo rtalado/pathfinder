@@ -38,7 +38,7 @@ async function copyDirectory(from: string, to: string) {
  */
 function contentPlugin(): Plugin {
   return {
-    name: 'learnpath-content',
+    name: 'pathfinder-content',
     configureServer(server) {
       server.middlewares.use('/content', (req, res, next) => {
         const urlPath = decodeURIComponent((req.url ?? '/').split('?')[0]);

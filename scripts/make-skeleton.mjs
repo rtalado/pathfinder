@@ -5,7 +5,7 @@
  * Wie de kopie krijgt, kan er zijn eigen versie van maken zonder iets van jou mee
  * te krijgen.
  *
- * Gebruik: node scripts/make-skeleton.mjs --out ../learnpath-starter
+ * Gebruik: node scripts/make-skeleton.mjs --out ../pathfinder-starter
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -18,10 +18,10 @@ function arg(name, fallback) {
   return index !== -1 && process.argv[index + 1] ? process.argv[index + 1] : fallback;
 }
 
-const OUT = path.resolve(ROOT, arg('out', '../learnpath-starter'));
+const OUT = path.resolve(ROOT, arg('out', '../pathfinder-starter'));
 
 /** De publieke repository waar de releases vandaan komen. */
-const REPO = arg('repo', 'rtalado/learnpath');
+const REPO = arg('repo', 'rtalado/pathfinder');
 
 /** Mapnamen die overal worden overgeslagen: gegenereerd of te groot. */
 const SKIP_ANYWHERE = new Set(['node_modules', '.git', 'dist', 'dist-electron', 'release']);
@@ -67,7 +67,7 @@ async function copyTree(from, to, relative = '') {
 // ---------------------------------------------------------------------------
 
 const STARTER_NODES = {
-  'zo-werkt-het.md': `# 1. Zo werkt LearnPath
+  'zo-werkt-het.md': `# 1. Zo werkt Pathfinder
 
 Een leerpad is een verzameling onderwerpen in de volgorde waarin je ze het beste leert. De gele blokken zijn fasen, de paarse de onderwerpen daarbinnen.
 
@@ -144,7 +144,7 @@ De app kan je voortgang en je eigen leerpaden gelijk houden tussen je computer e
 ## Via GitHub
 
 1. Een GitHub-account.
-2. Een **privé** repository, bijvoorbeeld met de naam learnpath-data.
+2. Een **privé** repository, bijvoorbeeld met de naam pathfinder-data.
 3. Een fine-grained token met toegang tot alleen die ene repository, met de rechten Contents: read and write.
 
 Die drie vul je in bij **Instellingen**. Klik op Verbinding testen en zet de schakelaar aan. Doe hetzelfde op je andere apparaat.
@@ -153,7 +153,7 @@ Die drie vul je in bij **Instellingen**. Klik op Verbinding testen en zet de sch
 
 In de map server van dit project staat een programma van één bestand. Start het op de machine die aan blijft staan:
 
-    node learnpath-server.mjs
+    node pathfinder-server.mjs
 
 Hij toont een toegangssleutel. Vul in de app het adres van die machine in, plus de sleutel. Je gegevens verlaten je huis dan niet.
 
@@ -186,7 +186,7 @@ Wil je de app aanpassen, dan heb je Node.js nodig. De opdrachten staan in README
 
 const STARTER_ROADMAP = {
   id: 'start',
-  title: 'Zo werkt LearnPath',
+  title: 'Zo werkt Pathfinder',
   subtitle: 'Lees dit eerst, maak daarna je eigen leerpad',
   description:
     'Een kort pad dat uitlegt hoe de app werkt en hoe je met een AI je eigen leerpad maakt. Verwijder het gerust zodra je op weg bent.',
@@ -253,7 +253,7 @@ const STARTER_ROADMAP = {
   ],
 };
 
-const SKELETON_README = `# LearnPath
+const SKELETON_README = `# Pathfinder
 
 Een leerpad-app in de stijl van roadmap.sh, die lokaal draait. Je maakt je eigen
 leerpaden door een AI ze te laten schrijven en het antwoord in de app te plakken.
@@ -267,8 +267,10 @@ dat bij je apparaat past:
 
 | Bestand | Voor |
 |---|---|
-| \`LearnPath-Setup-x.y.z.exe\` | Windows |
-| \`LearnPath-x.y.z.apk\` | Android |
+| \`Pathfinder-Setup-x.y.z.exe\` | Windows |
+| \`Pathfinder-x.y.z.AppImage\` | Linux, elke distributie |
+| \`Pathfinder-x.y.z.deb\` | Linux met apt: Debian, Ubuntu, Mint |
+| \`Pathfinder-x.y.z.apk\` | Android |
 
 Er is geen account nodig en er wordt niets naar een server gestuurd. Alles blijft op
 je eigen apparaat, tenzij je zelf synchronisatie aanzet.
@@ -277,10 +279,25 @@ je eigen apparaat, tenzij je zelf synchronisatie aanzet.
 niet is ondertekend met een betaald certificaat. Klik op *Meer informatie* en daarna op
 *Toch uitvoeren*.
 
+**Linux**: de AppImage draait zonder installatie. Maak hem uitvoerbaar met
+\`chmod +x Pathfinder-*.AppImage\` en start hem; hij werkt zichzelf daarna
+bij. De \`.deb\` installeer je met \`sudo apt install ./Pathfinder-*.deb\`.
+
 **Android** vraagt eenmalig toestemming om een app buiten de Play Store te
 installeren. De APK is ondertekend met een testsleutel.
 
-Start daarna de app en volg het leerpad **Zo werkt LearnPath**; daar staat de rest in.
+Start daarna de app en volg het leerpad **Zo werkt Pathfinder**; daar staat de rest in.
+
+## In de terminal
+
+Er is ook een terminalversie, met dezelfde leerpaden en dezelfde synchronisatie:
+
+\`\`\`bash
+npm run tui
+\`\`\`
+
+Pijltjes bewegen, \`enter\` opent, \`spatie\` zet de status om, \`?\` toont
+alle toetsen. \`npm run tui -- --themas\` laat de themas zien.
 
 ## Zelf bouwen of aanpassen
 
@@ -291,6 +308,13 @@ npm install
 npm run dev            # in de browser, tijdens het aanpassen
 npm run electron:dev   # als desktop-app
 npm run electron:build # maakt het installatiebestand in release/
+npm run tui            # de terminalversie, zonder bouwstap
+\`\`\`
+
+Linux-pakketten bouw je op Linux, of laat je door de workflow bouwen:
+
+\`\`\`bash
+npm run electron:build:linux
 \`\`\`
 
 Voor Android voeg je het platform eerst toe:
@@ -314,6 +338,7 @@ Wat je waarschijnlijk wilt aanpassen:
 | \`capacitor.config.ts\` | \`appId\` en \`appName\` voor Android |
 | \`content/roadmaps/\` | je eigen leerpaden als bestanden, zie [content/README.md](content/README.md) |
 | \`build/icon.png\` | het app-icoon; \`npm run icons\` tekent het standaardicoon opnieuw |
+| \`shared/themes.json\` | de themas van de app en van de terminalversie |
 
 Leerpaden hoef je niet als bestand toe te voegen: alles wat je via **Nieuw leerpad**
 importeert, wordt in de app zelf bewaard en gesynchroniseerd.
@@ -321,8 +346,8 @@ importeert, wordt in de app zelf bewaard en gesynchroniseerd.
 ## Automatisch bijwerken
 
 Push je dit project naar je eigen GitHub-repository, dan bouwen de meegeleverde
-workflows bij elke versietag een Windows-installatiebestand en een APK, en hangen die
-aan een release. De apps controleren daar zelf op.
+workflows bij elke versietag een Windows-installatiebestand, Linux-pakketten en een
+APK, en hangen die aan een release. De apps controleren daar zelf op.
 
 \`\`\`bash
 npm version patch
@@ -334,6 +359,8 @@ van documenten staat in het originele project.
 
 ## Wat er in zit
 
+- een app voor Windows, Linux en Android, plus een terminalversie
+- zeven themas, waaronder twee voor wie liever in een terminal zit
 - leerpaden als node-graph met pan en zoom, plus een lijstweergave voor mobiel
 - vier statussen per onderwerp, notities, bronnen met leesstatus
 - overhoorkaarten met spaced repetition
@@ -398,7 +425,7 @@ async function depersonalize() {
   pkg.license = 'MIT';
   pkg.description =
     'Modulaire leerpad-app voor desktop en Android; leerpaden maak je met een AI.';
-  pkg.build.appId = 'com.example.learnpath';
+  pkg.build.appId = 'com.example.pathfinder';
   pkg.build.copyright = '';
   // De publieke repository waar de releases vandaan komen. Geen token nodig, en
   // los van de prive repository waarin iemand zijn eigen voortgang bewaart.
@@ -420,8 +447,8 @@ async function depersonalize() {
         "owner: '',"
       )
       .replace(
-        /\/\/ Jouw eigen prive repo; 'learnpath' is de publieke versie van de app\.\n\s*repo: '[^']*',/,
-        "repo: 'learnpath-data',"
+        /\/\/ Jouw eigen prive repo; 'pathfinder' is de publieke versie van de app\.\n\s*repo: '[^']*',/,
+        "repo: 'pathfinder-data',"
       ),
     'utf8'
   );
@@ -436,7 +463,7 @@ async function depersonalize() {
   const capacitor = await fs.readFile(capacitorPath, 'utf8');
   await fs.writeFile(
     capacitorPath,
-    capacitor.replace("appId: 'nl.araldo.learnpath'", "appId: 'com.example.learnpath'"),
+    capacitor.replace("appId: 'nl.araldo.pathfinder'", "appId: 'com.example.pathfinder'"),
     'utf8'
   );
 

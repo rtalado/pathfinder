@@ -1,4 +1,4 @@
-# 1. Zo werkt LearnPath
+# 1. Zo werkt Pathfinder
 
 Een leerpad is een verzameling onderwerpen in de volgorde waarin je ze het beste leert. De gele blokken zijn fasen, de paarse de onderwerpen daarbinnen.
 

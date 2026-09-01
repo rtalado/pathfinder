@@ -18,7 +18,8 @@ import { APP_VERSION, IS_DESKTOP, openExternal, platformKind } from '@/lib/platf
 import { RELEASE_SOURCE, useUpdate } from '@/store/updateStore';
 import { clearPulledContent, loadManifest, usingPulledContent } from '@/lib/content';
 import { useProgress } from '@/store/progressStore';
-import { readToken, useSettings, type ThemeChoice } from '@/store/settingsStore';
+import { readToken, useSettings } from '@/store/settingsStore';
+import { ThemePicker } from '@/components/ThemePicker';
 
 const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new';
 
@@ -201,7 +202,7 @@ export function SettingsPage() {
                   onChange={(event) => setSync({ serverUrl: event.target.value })}
                 />
                 <span className="field__hint">
-                  Het adres waarop je de LearnPath-server draait. Een IP-adres mag ook, bijvoorbeeld
+                  Het adres waarop je de Pathfinder-server draait. Een IP-adres mag ook, bijvoorbeeld
                   http://192.168.1.20:8787.
                 </span>
               </div>
@@ -374,19 +375,14 @@ export function SettingsPage() {
 
           {/* ---------- Weergave ---------- */}
           <section className="card stack">
-            <h2 style={{ margin: 0, fontSize: 16 }}>Weergave</h2>
-            <div className="field" style={{ margin: 0, maxWidth: 260 }}>
-              <span className="field__label">Thema</span>
-              <select
-                className="select"
-                value={theme}
-                onChange={(event) => setTheme(event.target.value as ThemeChoice)}
-              >
-                <option value="dark">Donker</option>
-                <option value="light">Licht</option>
-                <option value="system">Volg het systeem</option>
-              </select>
+            <div>
+              <h2 style={{ margin: '0 0 4px', fontSize: 16 }}>Thema</h2>
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                Geldt voor de hele app en blijft op dit apparaat staan; hij gaat niet mee in de
+                synchronisatie. De terminalversie kent dezelfde thema's.
+              </p>
             </div>
+            <ThemePicker value={theme} onChange={setTheme} />
           </section>
 
           {/* ---------- Bijwerken ---------- */}

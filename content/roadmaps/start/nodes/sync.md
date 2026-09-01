@@ -5,7 +5,7 @@ De app kan je voortgang en je eigen leerpaden gelijk houden tussen je computer e
 ## Via GitHub
 
 1. Een GitHub-account.
-2. Een **privé** repository, bijvoorbeeld met de naam learnpath-data.
+2. Een **privé** repository, bijvoorbeeld met de naam pathfinder-data.
 3. Een fine-grained token met toegang tot alleen die ene repository, met de rechten Contents: read and write.
 
 Die drie vul je in bij **Instellingen**. Klik op Verbinding testen en zet de schakelaar aan. Doe hetzelfde op je andere apparaat.
@@ -14,7 +14,7 @@ Die drie vul je in bij **Instellingen**. Klik op Verbinding testen en zet de sch
 
 In de map server van dit project staat een programma van één bestand. Start het op de machine die aan blijft staan:
 
-    node learnpath-server.mjs
+    node pathfinder-server.mjs
 
 Hij toont een toegangssleutel. Vul in de app het adres van die machine in, plus de sleutel. Je gegevens verlaten je huis dan niet.
 

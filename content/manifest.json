@@ -1,10 +1,10 @@
 {
-  "contentVersion": "b5d09edd07da8906",
-  "generatedAt": "2026-08-23T12:33:55.386Z",
+  "contentVersion": "7d63584a08f50061",
+  "generatedAt": "2026-09-01T12:12:02.234Z",
   "roadmaps": [
     {
       "id": "start",
-      "title": "Zo werkt LearnPath",
+      "title": "Zo werkt Pathfinder",
       "subtitle": "Lees dit eerst, maak daarna je eigen leerpad",
       "icon": "graduation-cap",
       "color": "#8b5cf6",
@@ -38,8 +38,8 @@
     },
     {
       "path": "roadmaps/start/nodes/sync.md",
-      "hash": "d18061fa62ce5310",
-      "size": 1294
+      "hash": "34db19d8afa4f538",
+      "size": 1296
     },
     {
       "path": "roadmaps/start/nodes/zelf-schrijven.md",
@@ -48,13 +48,13 @@
     },
     {
       "path": "roadmaps/start/nodes/zo-werkt-het.md",
-      "hash": "b7021520045b7b11",
-      "size": 681
+      "hash": "0ba2e62860bd5add",
+      "size": 682
     },
     {
       "path": "roadmaps/start/roadmap.json",
-      "hash": "3a3a22162cd7722c",
-      "size": 2299
+      "hash": "6259cedbc3690997",
+      "size": 2300
     }
   ]
 }

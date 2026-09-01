@@ -9,6 +9,9 @@
  * het opstarten blijft wachten en niets laat zien.
  */
 
+// Bewust nog 'learnpath': dit is de naam van de bestaande IndexedDB. Wie de app al
+// heeft, zou bij een nieuwe naam een lege database krijgen en zijn voortgang en
+// eigen leerpaden pas terugzien na een synchronisatie.
 const DB_NAME = 'learnpath';
 const DB_VERSION = 1;
 const STORE = 'kv';

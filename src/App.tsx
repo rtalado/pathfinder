@@ -22,7 +22,7 @@ function Sidebar() {
         <span className="sidebar__logo">
           <Layers size={16} />
         </span>
-        LearnPath
+        Pathfinder
       </div>
 
       <NavLink

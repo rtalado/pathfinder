@@ -6,6 +6,7 @@ import { desktop } from './lib/platform';
 import { RELEASE_IS_PRIVATE, useUpdate } from './store/updateStore';
 import { useProgress } from './store/progressStore';
 import { readToken, useSettings } from './store/settingsStore';
+import { applyTheme, findTheme } from './lib/themes';
 import './index.css';
 
 /** Zet het thema op <html>, zodat de CSS-tokens meteen kloppen. */
@@ -14,8 +15,11 @@ function useTheme() {
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: light)');
     const apply = () => {
+      // "Volg het systeem" kiest tussen de twee neutrale thema's; een eigen keuze
+      // blijft staan, ook als het systeem intussen naar licht overschakelt.
       const resolved = theme === 'system' ? (media.matches ? 'light' : 'dark') : theme;
-      document.documentElement.dataset.theme = resolved;
+      applyTheme(findTheme(resolved));
+      useSettings.getState().setResolvedTheme(resolved);
     };
     apply();
     media.addEventListener('change', apply);

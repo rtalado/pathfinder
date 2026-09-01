@@ -50,7 +50,10 @@ function setSecret(key, value) {
   if (value === null || value === undefined || value === '') {
     delete secrets[key];
   } else if (safeStorage.isEncryptionAvailable()) {
-    // Windows versleutelt dit met DPAPI, gekoppeld aan je gebruikersaccount.
+    // Windows doet dit met DPAPI, gekoppeld aan je gebruikersaccount. Linux gebruikt
+    // de sleutelbos van je bureaublad (gnome-keyring of kwallet). Draait er geen
+    // sleutelbos, bijvoorbeeld op een kale window manager, dan valt het hieronder
+    // terug op een bestand dat alleen jij mag lezen.
     secrets[key] = { encrypted: true, value: safeStorage.encryptString(value).toString('base64') };
   } else {
     secrets[key] = { encrypted: false, value };
@@ -77,6 +80,9 @@ function createWindow() {
     minWidth: 900,
     minHeight: 620,
     backgroundColor: '#0d1117',
+    // Windows haalt het pictogram uit het uitvoerbare bestand, Linux niet; daar
+    // moet het venster het los meekrijgen.
+    ...(process.platform === 'linux' ? { icon: path.join(__dirname, '..', 'build', 'icon.png') } : {}),
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
@@ -98,7 +104,7 @@ function createWindow() {
   if (isDev) {
     void mainWindow.loadURL('http://localhost:5173');
   } else {
-    void mainWindow.loadURL('app://learnpath/index.html');
+    void mainWindow.loadURL('app://pathfinder/index.html');
   }
 
   mainWindow.on('closed', () => {
@@ -161,8 +167,22 @@ function registerAppProtocol() {
 
 let autoUpdater = null;
 
+/** Waarom bijwerken hier niet gaat; hangt af van hoe de app geinstalleerd is. */
+function updaterUnavailableReason() {
+  if (process.platform === 'linux' && !process.env.APPIMAGE) {
+    return (
+      'Deze Linux-versie werkt zichzelf niet bij. Een .deb werk je bij via je ' +
+      'pakketbeheerder; de AppImage doet het wel zelf.'
+    );
+  }
+  return 'Bijwerken werkt alleen in de geinstalleerde app.';
+}
+
 function setupUpdater() {
   if (isDev) return;
+  // Alleen de AppImage kan zichzelf vervangen. Bij een .deb zou electron-updater
+  // een installatie beginnen die de pakketbeheerder daarna niet meer herkent.
+  if (process.platform === 'linux' && !process.env.APPIMAGE) return;
   try {
     ({ autoUpdater } = require('electron-updater'));
   } catch {
@@ -229,7 +249,7 @@ ipcMain.handle('updater:configure', (_event, token) => {
 });
 ipcMain.handle('updater:check', async () => {
   if (!autoUpdater) {
-    sendUpdateEvent({ type: 'error', message: 'Bijwerken werkt alleen in de geinstalleerde app.' });
+    sendUpdateEvent({ type: 'error', message: updaterUnavailableReason() });
     return;
   }
   await autoUpdater.checkForUpdates();
